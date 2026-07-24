@@ -25,8 +25,8 @@
 
   /* Header */
   .s1-header{position:sticky;top:0;z-index:50;background:rgba(26,46,88,.98);backdrop-filter:saturate(1.2) blur(4px);}
-  .s1-header .s1-wrap{display:flex;align-items:center;justify-content:space-between;height:66px;}
-  .s1-logo-img{height:32px;width:auto;display:block;}
+  .s1-header .s1-wrap{display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .s1-logo-img{height:28px;width:auto;display:block;}
   .s1-nav{display:flex;align-items:center;gap:26px;}
   .s1-nav a{color:#dfe6f3;font-weight:600;font-size:15px;}
   .s1-nav a:hover{color:#fff;}
@@ -34,25 +34,26 @@
   @media(max-width:860px){.s1-nav a:not(.s1-cta){display:none;}}
 
   /* Hero */
-  .s1-hero{background:linear-gradient(160deg,#12203f 0%, #1A2E58 55%, #24406f 100%);color:#eaf0fb;position:relative;overflow:hidden;}
+  .s1-hero{background:linear-gradient(160deg,rgba(18,32,63,.86) 0%, rgba(26,46,88,.80) 55%, rgba(36,64,111,.76) 100%), url('https://res.cloudinary.com/smart1labs/image/upload/v1784750331/Sell_More_RVs_When_the_Weather_Is_Right.png');background-size:cover;background-position:bottom right;background-repeat:no-repeat;color:#eaf0fb;position:relative;overflow:hidden;}
   .s1-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(900px 400px at 80% -10%, rgba(240,169,59,.18), transparent 60%);pointer-events:none;}
-  .s1-hero .s1-wrap{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:42px;padding:56px 22px 64px;align-items:start;}
-  .s1-hero h1{color:#fff;font-size:clamp(30px,4.4vw,50px);}
+  .s1-hero .s1-wrap{position:relative;max-width:620px;margin:0 auto;padding:14px 22px 26px;text-align:center;}
+  .s1-hero .s1-eyebrow{color:#9fc0ff;margin:0 0 5px;}
+  .s1-hero h1{color:#fff;font-size:clamp(23px,2.9vw,30px);margin:0 0 7px;}
   .s1-hero h1 .u{color:var(--accent);}
-  .s1-hero p.lead{font-size:clamp(16px,1.7vw,20px);color:#cfdaf0;max-width:560px;}
-  .s1-hero .s1-eyebrow{color:#9fc0ff;}
-  .s1-cta-row{display:flex;gap:14px;flex-wrap:wrap;margin:26px 0 20px;align-items:center;}
-  .s1-checks{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:10px;}
-  .s1-checks li{display:flex;gap:10px;align-items:flex-start;color:#dbe4f5;font-weight:600;font-size:15px;}
-  .s1-checks svg{flex:0 0 auto;margin-top:2px;}
-  .s1-formcol{background:transparent;}
-  .s1-formtop{background:var(--accent);color:#20160a;font-weight:800;text-align:center;padding:12px 16px;border-radius:16px 16px 0 0;font-size:15px;letter-spacing:.01em;}
-  .s1-formcol #smart1rv-widget .smart1rv-card{margin:0;border-radius:0 0 16px 16px;box-shadow:0 30px 60px rgba(8,16,35,.45);padding:26px;}
-  .s1-formcol #smart1rv-widget h2{font-size:clamp(22px,2.4vw,28px);}
-  @media(max-width:900px){
-    .s1-hero .s1-wrap{grid-template-columns:1fr;gap:26px;padding:40px 22px 48px;}
-    .s1-formcol{order:2;}
-  }
+  .s1-hero p.lead{font-size:15px;color:#cfdaf0;max-width:520px;margin:0 auto;line-height:1.45;}
+  .s1-checks{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;}
+  .s1-checks li{display:flex;gap:7px;align-items:center;color:#dbe4f5;font-weight:600;font-size:13px;}
+  .s1-checks svg{flex:0 0 auto;width:16px;height:16px;}
+  .s1-formcol{background:transparent;max-width:600px;margin:10px auto 0;text-align:left;}
+  .s1-formtop{background:var(--accent);color:#20160a;font-weight:800;text-align:center;padding:10px 16px;border-radius:16px 16px 0 0;font-size:14px;letter-spacing:.01em;}
+  .s1-formcol #smart1rv-widget .smart1rv-card{margin:0;border-radius:0 0 16px 16px;box-shadow:0 30px 60px rgba(8,16,35,.45);padding:22px 22px 20px;}
+  .s1-formcol #smart1rv-widget h2{font-size:22px;margin:0 0 8px;}
+  .s1-formcol #smart1rv-widget .smart1rv-progress-wrap{margin-bottom:16px;}
+  .s1-formcol #smart1rv-widget label{margin-bottom:7px;}
+  .s1-formcol #smart1rv-widget input,.s1-formcol #smart1rv-widget select,.s1-formcol #smart1rv-widget textarea{padding:10px 13px;margin-top:4px;}
+  .s1-formcol #smart1rv-widget .smart1rv-helper{font-size:13px;margin:0 0 4px;}
+  .s1-formcol #smart1rv-widget .smart1rv-actions{margin-top:8px;}
+  @media(max-width:600px){ .s1-hero .s1-wrap{padding:18px 16px 30px;} .s1-checks{gap:6px 12px;} }
 
   /* Trust bar + Powered By animation */
   .s1-trust{background:#0f1b35;color:#c4d2ec;overflow:hidden;}
@@ -78,6 +79,13 @@
   .s1-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px;box-shadow:0 10px 30px rgba(26,46,88,.06);}
   .s1-card h3{font-size:20px;}
   .s1-card p{color:var(--muted);margin:0;}
+  /* Image-backed cards: photo shows through a light white overlay, text stays legible */
+  .s1-card.s1-bg{background-size:cover;background-position:bottom right;background-repeat:no-repeat;border-color:rgba(26,46,88,.14);}
+  .s1-card.s1-bg h3{color:var(--navy);text-shadow:0 1px 2px rgba(255,255,255,.85);}
+  .s1-card.s1-bg p{color:#41506e;text-shadow:0 1px 2px rgba(255,255,255,.8);}
+  .s1-card.s1-bg .s1-ico{background:rgba(255,255,255,.82);box-shadow:0 2px 8px rgba(26,46,88,.12);}
+  .s1-card.s1-bg .s1-ico.navy{background:rgba(26,46,88,.9);}
+  .s1-card.s1-bg .num{box-shadow:0 2px 8px rgba(26,46,88,.25);}
   .s1-ico{width:46px;height:46px;border-radius:12px;background:var(--light);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:22px;}
   .s1-ico.navy{background:var(--navy);}
   .s1-step .num{width:38px;height:38px;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
@@ -199,11 +207,7 @@
     <div class="s1-copycol">
       <p class="s1-eyebrow">For RV Dealerships</p>
       <h1>Sell More RVs When the <span class="u">Weather</span> Is Right.</h1>
-      <p class="lead">Smart 1's weather-triggered advertising puts your dealership in front of in-market RV buyers exactly when sunshine, storms, and cold snaps drive them to buy, service, and upgrade.</p>
-      <div class="s1-cta-row">
-        <a href="#get-report" class="s1-btn">Get My Free RV Demand Report →</a>
-        <a href="#how" class="s1-btn-ghost">See how it works</a>
-      </div>
+      <p class="lead">Weather-triggered advertising that reaches in-market RV buyers exactly when sunshine, storms, and cold snaps drive them to buy and service.</p>
       <ul class="s1-checks">
         <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#F0A93B"/><path d="M7 12.5l3 3 7-7" stroke="#20160a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> A custom market report for your ZIP in about 60 seconds</li>
         <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#F0A93B"/><path d="M7 12.5l3 3 7-7" stroke="#20160a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> See your campground reach, recommended plan &amp; budget</li>
@@ -321,9 +325,9 @@
     <h2>The weather decides who’s buying. Are your ads paying attention?</h2>
     <p class="sub">RV demand spikes and stalls with the forecast — the first warm weekend, a storm that damages a roof, the first freeze. Most dealers advertise on a flat monthly schedule and miss the moments that actually move buyers.</p>
     <div class="s1-grid3">
-      <div class="s1-card"><div class="s1-ico">☀️</div><h3>You spend when it’s quiet</h3><p>Flat ad schedules burn budget on slow-weather days and go dark right when buyers are ready to shop.</p></div>
-      <div class="s1-card"><div class="s1-ico">🌧️</div><h3>You miss service moments</h3><p>Storms, heat, and freezes create urgent service and winterization demand — but only if you show up first.</p></div>
-      <div class="s1-card"><div class="s1-ico">🎯</div><h3>You’re not reaching campers</h3><p>Without campground data and in-market buyer targeting, your ads reach everyone but the people ready to buy an RV.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740505/You_spend_when_it_s_quiet.png');"><div class="s1-ico">☀️</div><h3>You spend when it’s quiet</h3><p>Flat ad schedules burn budget on slow-weather days and go dark right when buyers are ready to shop.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740505/You_miss_service_moments.png');"><div class="s1-ico">🌧️</div><h3>You miss service moments</h3><p>Storms, heat, and freezes create urgent service and winterization demand — but only if you show up first.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740507/You_re_not_reaching_campers.png');"><div class="s1-ico">🎯</div><h3>You’re not reaching campers</h3><p>Without campground data and in-market buyer targeting, your ads reach everyone but the people ready to buy an RV.</p></div>
     </div>
   </div>
 </section>
@@ -335,9 +339,9 @@
     <h2>Your weather-triggered demand engine in 3 steps</h2>
     <p class="sub">No long forms, no guesswork. You’ll see your market opportunity before you ever talk to us.</p>
     <div class="s1-grid3">
-      <div class="s1-card s1-step"><div class="num">1</div><h3>Tell us your market</h3><p>Enter your dealership name, contact, and ZIP — that’s it to get started. No full address, no sales call required.</p></div>
-      <div class="s1-card s1-step"><div class="num">2</div><h3>Get your custom report</h3><p>Instantly see your campground reach, recommended weather triggers, media channels, budget, and a month-by-month plan.</p></div>
-      <div class="s1-card s1-step"><div class="num">3</div><h3>Turn weather into traffic</h3><p>We launch weather-triggered ads to in-market RV buyers — so you sell and service more on the days that matter.</p></div>
+      <div class="s1-card s1-step s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740507/Tell_us_your_market.png');"><div class="num">1</div><h3>Tell us your market</h3><p>Enter your dealership name, contact, and ZIP — that’s it to get started. No full address, no sales call required.</p></div>
+      <div class="s1-card s1-step s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740510/Get_your_custom_report.png');"><div class="num">2</div><h3>Get your custom report</h3><p>Instantly see your campground reach, recommended weather triggers, media channels, budget, and a month-by-month plan.</p></div>
+      <div class="s1-card s1-step s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740510/Turn_weather_into_traffic.png');"><div class="num">3</div><h3>Turn weather into traffic</h3><p>We launch weather-triggered ads to in-market RV buyers — so you sell and service more on the days that matter.</p></div>
     </div>
     <div style="text-align:center;margin-top:34px;"><a href="#get-report" class="s1-btn">Get My Free Report →</a></div>
   </div>
@@ -350,12 +354,12 @@
     <h2>A complete weather-triggered advertising system</h2>
     <p class="sub">Every campaign is built on RV buyer data and activated by the weather moments that drive demand in your market.</p>
     <div class="s1-grid3">
-      <div class="s1-card"><div class="s1-ico navy">🌦️</div><h3>Weather-triggered activation</h3><p>Ads turn on when your chosen conditions hit — 70°+ weekends, heavy rain, first frost, freeze warnings — and pause when they don’t.</p></div>
-      <div class="s1-card"><div class="s1-ico navy">🧭</div><h3>In-market RV buyer data</h3><p>Reach households actively shopping for RVs, layered with campground &amp; state-park geotargeting and location look-back.</p></div>
-      <div class="s1-card"><div class="s1-ico navy">📺</div><h3>Premium channels</h3><p>Connected TV, streaming radio, podcasts, data-driven display, and digital out-of-home at bars, restaurants, gas &amp; shopping.</p></div>
-      <div class="s1-card"><div class="s1-ico navy">📅</div><h3>Seasonal budget that flexes</h3><p>Spend goes up in peak demand and steps down in the off-season, so you never waste budget on slow-weather days.</p></div>
-      <div class="s1-card"><div class="s1-ico navy">🛡️</div><h3>SmartForecast</h3><p>Unused budget from slow-weather windows rolls forward as credit — your media works even when the weather doesn’t.</p></div>
-      <div class="s1-card"><div class="s1-ico navy">📈</div><h3>Full-funnel coverage</h3><p>New &amp; used sales, trade-ins, financing, plus service, winterization, and seasonal maintenance — all in one plan.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784753956/Weather_Triggered_Activation_for_RV_Dealers.png');"><div class="s1-ico navy">🌦️</div><h3>Weather-triggered activation</h3><p>Ads turn on when your chosen conditions hit — 70°+ weekends, heavy rain, first frost, freeze warnings — and pause when they don’t.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784753954/In_Market_RV_Buyer_Data.png');"><div class="s1-ico navy">🧭</div><h3>In-market RV buyer data</h3><p>Reach households actively shopping for RVs, layered with campground &amp; state-park geotargeting and location look-back.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784753953/Premium_channels_for_advertising.png');"><div class="s1-ico navy">📺</div><h3>Premium channels</h3><p>Connected TV, streaming radio, podcasts, data-driven display, and digital out-of-home at bars, restaurants, gas &amp; shopping.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740507/season_budget_that_flexes.png');"><div class="s1-ico navy">📅</div><h3>Seasonal budget that flexes</h3><p>Spend goes up in peak demand and steps down in the off-season, so you never waste budget on slow-weather days.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740504/SmartForecast.png');"><div class="s1-ico navy">🛡️</div><h3>SmartForecast</h3><p>Unused budget from slow-weather windows rolls forward as credit — your media works even when the weather doesn’t.</p></div>
+      <div class="s1-card s1-bg" style="background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url('https://res.cloudinary.com/smart1labs/image/upload/v1784740510/Full-funnel_coverage.png');"><div class="s1-ico navy">📈</div><h3>Full-funnel coverage</h3><p>New &amp; used sales, trade-ins, financing, plus service, winterization, and seasonal maintenance — all in one plan.</p></div>
     </div>
   </div>
 </section>
