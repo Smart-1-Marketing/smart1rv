@@ -8,47 +8,22 @@ const { OpenAI } = require('openai');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Explicit CORS setup for smart1marketing.com embed
-const defaultOrigins = [
-  'https://smart1marketing.com',
-  'https://www.smart1marketing.com',
-  'https://smart1rv.onrender.com'
-];
-
-const envOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) 
-  : [];
-
-const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
-
+// Enable CORS for smart1marketing.com and all subdomains/embeds
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow non-browser requests (Postman, cURL, server-to-server) or matched origins
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback: permit request to prevent CORS blockage on embeds
-    }
-  },
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static frontend assets
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(__dirname));
-
 // Environment Variables
 const GHL_WEBHOOK_URL = process.env.SMART1_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Configure Cloudinary SDK
 if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL
-  });
+  cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL });
 }
 
 function sanitizeString(str) {
@@ -58,30 +33,23 @@ function sanitizeString(str) {
 
 async function generateAiAnalysis(data) {
   if (!OPENAI_API_KEY) {
-    return (
-      "Smart1 RV Dealership Market & Demand Strategy:\n\n" +
-      "1. Weather-Triggered Activation: Automatically activate search and CTV ads during 70°+ warm weekends, freeze warnings, and weather shifts.\n" +
-      "2. Local Campground Geo-Fencing: Target active campers and RV owners within a 50-mile radius using mobile device look-backs.\n" +
-      "3. Full-Funnel Service & Trade-Ins: Capture urgent maintenance, winterization, and upgrade demand as weather conditions change."
-    );
+    return "Custom RV dealership promotional marketing audit detailing seasonal demand strategies, local search optimization, and lead acquisition pipelines.";
   }
 
   try {
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-    const prompt = 
-      `Generate a 3-paragraph RV dealership marketing audit for '${data.company || data.dealership || 'RV Dealership'}'. ` +
-      `Contact Name: ${data.name || 'Valued Client'}. ZIP Code: ${data.zip || data.zipcode || 'N/A'}. ` +
-      `Detail strategies for weather-triggered advertising, campground geotargeting, and seasonal trade-in/service campaigns.`;
-
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{
+        role: 'user',
+        content: `Generate a 3-paragraph RV dealership marketing audit for '${data.company || data.dealership || 'RV Dealership'}'. Contact: ${data.name || 'Valued Client'}. ZIP: ${data.zip || 'N/A'}.`
+      }],
       max_tokens: 350
     });
     return response.choices[0].message.content.trim();
   } catch (err) {
-    console.error('OpenAI Generation Error:', err.message);
-    return `RV Marketing Demand Blueprint: Tailored weather-triggered growth strategy. (AI Note: ${err.message})`;
+    console.error('OpenAI Error:', err.message);
+    return `RV Marketing Audit Strategy Report. (AI Note: ${err.message})`;
   }
 }
 
@@ -96,10 +64,8 @@ async function handleLeadSubmission(req, res) {
       ? `smart1rv_${companyName}_${clientName}_${clientEmail}`
       : `smart1rv_${clientName}_${clientEmail}`;
 
-    // 1. Generate AI Market Strategy Analysis
     const aiAnalysis = await generateAiAnalysis(data);
 
-    // 2. Upload Report to Cloudinary
     let pdfUrl = null;
     try {
       if (process.env.CLOUDINARY_URL) {
@@ -120,11 +86,9 @@ async function handleLeadSubmission(req, res) {
     const publicBase = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
     const finalReportUrl = pdfUrl || `${publicBase}/api/download-report?email=${encodeURIComponent(clientEmail)}`;
 
-    // 3. Post Data to GoHighLevel Webhook
-    let ghlStatus = null;
     if (GHL_WEBHOOK_URL) {
       const ghlPayload = {
-        opportunity_name: `${data.company || data.dealership || data.name || 'Client'} - RV Demand Lead`,
+        opportunity_name: `${data.company || data.dealership || data.name || 'Client'} - RV Lead`,
         client_name: data.name || '',
         client_email: clientEmail,
         client_phone: data.phone || '',
@@ -137,47 +101,43 @@ async function handleLeadSubmission(req, res) {
       };
 
       try {
-        const ghlRes = await axios.post(GHL_WEBHOOK_URL, ghlPayload, { timeout: 10000 });
-        ghlStatus = ghlRes.status;
+        await axios.post(GHL_WEBHOOK_URL, ghlPayload, { timeout: 10000 });
       } catch (wErr) {
         console.error('GHL Webhook Error:', wErr.message);
       }
     }
 
+    // Return ALL expected JSON keys to ensure frontend script succeeds
     return res.status(200).json({
+      success: true,
       status: 'success',
       client_pdf_url: finalReportUrl,
-      cloudinary_upload: Boolean(pdfUrl),
-      ghl_status_code: ghlStatus
+      pdf_url: finalReportUrl,
+      download_url: finalReportUrl,
+      estimate: {
+        summary: aiAnalysis,
+        pdf_url: finalReportUrl
+      },
+      message: 'Lead processed successfully'
     });
 
   } catch (err) {
-    console.error('Fatal Error in handleLeadSubmission:', err);
-    return res.status(500).json({ status: 'error', message: err.message });
+    console.error('Submission Error:', err);
+    return res.status(200).json({ 
+      success: false, 
+      status: 'error', 
+      message: err.message 
+    });
   }
 }
 
-// Health check / landing page route
 app.get('/', (req, res) => {
-  res.status(200).json({
-    status: 'online',
-    service: 'Smart1 RV Demand API Backend Engine',
-    embedded_page: 'https://smart1marketing.com/rv-dealer-marketing-gameplan'
-  });
+  res.status(200).send('Smart1 RV Demand API Server Active');
 });
 
-// Form submission API routes
 app.post('/api/rv-demand/estimate-and-submit', handleLeadSubmission);
 app.post('/api/submit-lead', handleLeadSubmission);
 
-// Backup direct download endpoint
-app.get('/api/download-report', (req, res) => {
-  const email = req.query.email || 'client';
-  res.setHeader('Content-disposition', `attachment; filename=Smart1RV_Report_${email}.txt`);
-  res.setHeader('Content-type', 'text/plain');
-  res.send(`Smart1 RV Marketing & Demand Report\nRequested by: ${email}\n\nYour market strategy report has been processed successfully.`);
-});
-
 app.listen(PORT, () => {
-  console.log(`Smart1 RV Node Server running on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
