@@ -1,32 +1,7 @@
 {
   "name": "smart1rv",
   "version": "1.0.0",
-  "description": "Smart RV Demand Package estimator and Smart 1 Suite webhook submitter.",
-  "main": "src/server.js",
-  "type": "module",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "suite:fields:dry": "SUITE_FIELD_DRY_RUN=true node scripts/createSuiteFields.js",
-    "suite:fields:create": "SUITE_FIELD_DRY_RUN=false node scripts/createSuiteFields.js"
-  },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "openai": "^4.77.0",
-    "pdfkit": "^0.15.1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
-}
-{
-  "name": "smart1rv",
-  "version": "1.0.0",
+  "description": "Smart1 RV Promo Web Service",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -37,5 +12,9 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "openai": "^4.85.4"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "ISC"
 }
