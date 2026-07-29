@@ -7,7 +7,7 @@ const { OpenAI } = require('openai');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Permissive CORS to accept embed requests from smart1marketing.com
+// Universal CORS handling for embedded forms
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -17,6 +17,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Environment Variables
 const GHL_WEBHOOK_URL = process.env.SMART1_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -33,19 +34,19 @@ async function generateAiAnalysis(data) {
   if (!OPENAI_API_KEY) {
     return (
       "Smart1 Weather-Triggered RV Demand Strategy:\n\n" +
-      "1. Weather-Triggered Activation: Automatically activate search, CTV, and audio ads during warm 70°+ weekends, freeze warnings, and weather shifts.\n" +
-      "2. Local Campground Geo-Fencing: Target active campers and RV owners within your sales and service radius using location look-back.\n" +
-      "3. Full-Funnel Service & Trade-Ins: Capture urgent maintenance, winterization, and upgrade demand as weather conditions change."
+      "1. Weather Activation: Turn on CTV & Search ads during 70°+ weekends and seasonal freezes.\n" +
+      "2. Local Geo-Fencing: Target campgrounds and active campers in a " + data.salesRadius + " radius.\n" +
+      "3. Service & Winterization: Drive maintenance campaigns within " + data.serviceRadius + " of your dealership."
     );
   }
 
   try {
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
     const prompt = 
-      `Generate a 3-paragraph RV dealership marketing audit for '${data.company}'. ` +
+      `Generate a 3-paragraph RV dealership marketing report for '${data.company}'. ` +
       `Contact: ${data.name}. ZIP: ${data.zip}. Website: ${data.website}. ` +
       `Sales Radius: ${data.salesRadius}, Service Radius: ${data.serviceRadius}. ` +
-      `Detail strategies for weather-triggered advertising, campground geotargeting, and seasonal trade-in/service campaigns.`;
+      `Focus on weather-triggered ads, campground geotargeting, and seasonal trade-ins.`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -55,7 +56,7 @@ async function generateAiAnalysis(data) {
     return response.choices[0].message.content.trim();
   } catch (err) {
     console.error('OpenAI Error:', err.message);
-    return `RV Marketing Audit Strategy Report for ${data.company}. (AI Note: ${err.message})`;
+    return `RV Market Strategy Report for ${data.company}. (AI Note: ${err.message})`;
   }
 }
 
@@ -63,16 +64,17 @@ async function handleLeadSubmission(req, res) {
   try {
     const rawData = req.body || {};
 
-    // Map and normalize all variations of incoming frontend keys from rv-dealer-marketing-gameplan
+    // Exhaustive mapping for all field variations on rv-dealer-marketing-gameplan
     const normalizedData = {
-      name: rawData.contactName || rawData.name || rawData.contact_name || 'Valued Lead',
-      email: (rawData.email || rawData.contactEmail || 'client@smart1marketing.com').trim(),
-      phone: rawData.phone || rawData.phoneNumber || '',
+      name: rawData.contactName || rawData.contact_name || rawData.name || rawData.fullName || 'Valued Lead',
+      email: (rawData.contactEmail || rawData.email || rawData.userEmail || 'client@smart1marketing.com').trim(),
+      phone: rawData.phoneNumber || rawData.phone || rawData.contactPhone || '',
       company: rawData.dealershipName || rawData.dealership || rawData.company || rawData.company_name || 'RV Dealership',
-      zip: rawData.zipCode || rawData.zipcode || rawData.zip || '',
-      website: rawData.dealershipWebsite || rawData.website || '',
-      salesRadius: rawData.salesRadius || rawData.sales_radius || '50 mi',
-      serviceRadius: rawData.serviceRadius || rawData.service_radius || '25 mi'
+      zip: rawData.dealershipZIPCode || rawData.zipCode || rawData.zipcode || rawData.zip || '',
+      website: rawData.dealershipWebsiteURL || rawData.dealershipWebsite || rawData.website || '',
+      salesRadius: rawData.salesRadius || rawData.sales_radius || rawData.buyRadius || '50 mi',
+      serviceRadius: rawData.serviceRadius || rawData.service_radius || '25 mi',
+      multiLocation: rawData.multiLocation || rawData.locations || 'No'
     };
 
     const clientEmail = normalizedData.email;
@@ -83,10 +85,10 @@ async function handleLeadSubmission(req, res) {
       ? `smart1rv_${companyName}_${clientName}_${clientEmail}`
       : `smart1rv_${clientName}_${clientEmail}`;
 
-    // 1. Generate AI Market Strategy Report
+    // 1. Generate AI Market Strategy Analysis
     const aiAnalysis = await generateAiAnalysis(normalizedData);
 
-    // 2. Upload Report to Cloudinary
+    // 2. Upload Report Payload to Cloudinary
     let pdfUrl = null;
     try {
       if (process.env.CLOUDINARY_URL) {
@@ -107,7 +109,7 @@ async function handleLeadSubmission(req, res) {
     const publicBase = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
     const finalReportUrl = pdfUrl || `${publicBase}/api/download-report?email=${encodeURIComponent(clientEmail)}`;
 
-    // 3. Trigger GoHighLevel Inbound Webhook
+    // 3. Post Data to GoHighLevel Webhook
     if (GHL_WEBHOOK_URL) {
       const ghlPayload = {
         opportunity_name: `${normalizedData.company} - RV Demand Lead`,
@@ -119,10 +121,11 @@ async function handleLeadSubmission(req, res) {
         website: normalizedData.website,
         sales_radius: normalizedData.salesRadius,
         service_radius: normalizedData.serviceRadius,
+        multi_location: normalizedData.multiLocation,
         client_pdf_url: finalReportUrl,
         source: 'smart1marketing.com/rv-dealer-marketing-gameplan',
         ai_summary: aiAnalysis,
-        raw_data: rawData
+        raw_payload: rawData
       };
 
       try {
@@ -132,7 +135,7 @@ async function handleLeadSubmission(req, res) {
       }
     }
 
-    // Crucial: Return `success: true` to satisfy `rv-dealer-marketing-gameplan:2052`
+    // Return the exact JSON structure expected by rv-dealer-marketing-gameplan:2052
     return res.status(200).json({
       success: true,
       status: 'success',
@@ -146,24 +149,25 @@ async function handleLeadSubmission(req, res) {
       estimate: {
         campgrounds: 42,
         camper_reach: '18,500',
-        pdf_url: finalReportUrl
+        pdf_url: finalReportUrl,
+        plan: 'Weather-Triggered Growth Plan'
       },
-      message: 'Estimate completed successfully'
+      message: 'Estimate generated successfully'
     });
 
   } catch (err) {
-    console.error('Submission Exception:', err);
-    // Return HTTP 200 with error details to avoid network crash
+    console.error('Submission Error Exception:', err);
+    // Return HTTP 200 with success: false to gracefully handle frontend validation
     return res.status(200).json({ 
       success: false, 
       status: 'error', 
-      message: err.message || 'Submission failed' 
+      message: err.message || 'Submission failed.' 
     });
   }
 }
 
 app.get('/', (req, res) => {
-  res.status(200).send('Smart1 RV Demand API Backend Active');
+  res.status(200).json({ status: 'online', service: 'Smart1 RV Demand API' });
 });
 
 app.post('/api/rv-demand/estimate-and-submit', handleLeadSubmission);
@@ -173,9 +177,9 @@ app.get('/api/download-report', (req, res) => {
   const email = req.query.email || 'client';
   res.setHeader('Content-disposition', `attachment; filename=Smart1RV_Report_${email}.txt`);
   res.setHeader('Content-type', 'text/plain');
-  res.send(`Smart1 RV Marketing Strategy Report\nRequested by: ${email}`);
+  res.send(`Smart1 RV Marketing Report\nRequested by: ${email}`);
 });
 
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
