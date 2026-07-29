@@ -1,7 +1,6 @@
 {
   "name": "smart1rv",
   "version": "1.0.0",
-  "description": "Smart1 RV Promo Web Service",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,9 +11,5 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "openai": "^4.85.4"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "license": "ISC"
+  }
 }
