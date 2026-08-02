@@ -196,11 +196,24 @@ IMPORTANT:
   #smart1rv-widget .smart1rv-cta-link{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#1A2E58;border:1.5px solid #1A2E58;font-weight:800;padding:13px 18px;border-radius:10px;text-decoration:none;font-size:15px;}
   #smart1rv-widget .smart1rv-cta-link:hover{background:#f5f8ff;}
 
+  #smart1rv-widget button{min-height:48px;touch-action:manipulation;}
   @media(max-width:680px){
-    #smart1rv-widget .smart1rv-card{margin:0;border-radius:0;padding:24px;}
+    #smart1rv-widget .smart1rv-card{margin:0;border-radius:0;padding:20px 18px 30px;}
     #smart1rv-widget .smart1rv-stat-grid{grid-template-columns:1fr;}
     #smart1rv-widget .smart1rv-budget-grid{grid-template-columns:1fr;}
     #smart1rv-widget .smart1rv-tier-grid{grid-template-columns:1fr;}
+    /* Full-width, stacked, thumb-friendly actions */
+    #smart1rv-widget .smart1rv-actions{flex-direction:column;align-items:stretch;}
+    #smart1rv-widget .smart1rv-actions>button,#smart1rv-widget .smart1rv-actions>a{width:100%;}
+    /* Pills fill two-up */
+    #smart1rv-widget .smart1rv-pillgroup{gap:8px;}
+    #smart1rv-widget .smart1rv-pill{flex:1 1 calc(50% - 8px);text-align:center;padding:13px 12px;}
+  }
+  @media(max-width:400px){
+    #smart1rv-widget .smart1rv-card{padding:16px 14px 26px;}
+  }
+  @media(max-width:340px){
+    #smart1rv-widget .smart1rv-pill{flex-basis:100%;}
   }
 </style>
 
@@ -208,6 +221,8 @@ IMPORTANT:
 (function () {
   const API_BASE = 'https://smart1rv.onrender.com';
   const LEAD_ID = (function(){try{return crypto.randomUUID();}catch(e){return 'rv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}})();
+  // Warm the Render container on load so it's ready before the visitor submits.
+  try { fetch(API_BASE+'/health',{method:'GET',cache:'no-store',keepalive:true}).catch(function(){}); } catch(e){}
   const ALL_WEATHER_TRIGGERS = ['First 50°–60° forecast','60°+ forecast','70°+ weekend','Sunny weekend','Holiday weekend forecast','Heavy rain','Thunderstorms','High wind','Severe storm watch','85°+ forecast','90°+ heat','Heat advisory','Heat index 100°+','First frost','Freeze warning','Snow forecast','Cold snap under 45°','Tropical storm or hurricane watch','Snowbird season'];
   const AUDIENCE_TARGETING = [['In-Market RV Buyer Data','households actively shopping for RVs'],['Campground & State-Park Geotargeting','reach campers where they camp'],['Location Look-Back Retargeting','recent campground / RV-park visitors']];
   var PACKAGE_TIERS = [

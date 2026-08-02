@@ -546,6 +546,20 @@
   #smart1rv-widget .smart1rv-tier-price span{font-size:12px;font-weight:600;color:#687386;}
   #smart1rv-widget .smart1rv-tier-tagline{color:#687386;font-size:12px;line-height:1.45;margin:6px 0 8px;}
   #smart1rv-widget .smart1rv-detail-fineprint{color:#687386;font-size:11px;line-height:1.5;margin-top:12px;}
+  #smart1rv-widget button{min-height:48px;touch-action:manipulation;}
+  @media(max-width:600px){
+    /* Report tiles stack so numbers stay legible on a phone */
+    #smart1rv-widget .smart1rv-stat-grid{grid-template-columns:1fr;}
+    #smart1rv-widget .smart1rv-budget-grid{grid-template-columns:1fr;}
+    /* Actions full-width & stacked, easy to thumb */
+    #smart1rv-widget .smart1rv-actions{flex-direction:column;align-items:stretch;}
+    #smart1rv-widget .smart1rv-actions>button,#smart1rv-widget .smart1rv-actions>a{width:100%;}
+    /* Radius pills fill two-up */
+    #smart1rv-widget .smart1rv-pill{flex:1 1 calc(50% - 8px);text-align:center;padding:12px 10px;}
+  }
+  @media(max-width:340px){
+    #smart1rv-widget .smart1rv-pill{flex-basis:100%;}
+  }
 </style>
 
 <!-- ============ EMBEDDED FORM SCRIPT (live) ============ -->
@@ -553,6 +567,9 @@
 (function () {
   const API_BASE = 'https://smart1rv.onrender.com';
   const LEAD_ID = (function(){try{return crypto.randomUUID();}catch(e){return 'rv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}})();
+  // Warm the Render container the moment the landing page loads, so the server is
+  // already awake by the time the visitor finishes the form (kills the cold-start stall).
+  try { fetch(API_BASE+'/health',{method:'GET',cache:'no-store',keepalive:true}).catch(function(){}); } catch(e){}
   const ALL_WEATHER_TRIGGERS = ['First 50°–60° forecast','60°+ forecast','70°+ weekend','Sunny weekend','Holiday weekend forecast','Heavy rain','Thunderstorms','High wind','Severe storm watch','85°+ forecast','90°+ heat','Heat advisory','Heat index 100°+','First frost','Freeze warning','Snow forecast','Cold snap under 45°','Tropical storm or hurricane watch','Snowbird season'];
   const AUDIENCE_TARGETING = [['In-Market RV Buyer Data','households actively shopping for RVs'],['Campground & State-Park Geotargeting','reach campers where they camp'],['Location Look-Back Retargeting','recent campground / RV-park visitors']];
   var PACKAGE_TIERS = [
