@@ -477,14 +477,22 @@ function buildFallbackEstimate(payload) {
   const monthsCount = 12;
   const peakMonths = yearRound ? [2, 3, 4, 5, 6, 7, 8, 9] : [4, 5, 6, 7, 8];      // Mar–Oct vs May–Sep
   const offMonths = yearRound ? [0, 1] : [10, 11, 0, 1, 2];                        // fewer off months down south
+  const warmTriggers = ['70°+ weekend', 'Heavy rain', 'Sunny weekend'];
+  const coldTriggers = ['First frost', 'Frost warning', 'Freeze warning', 'Ice storm'];
+  // Headline triggers shown on the report, tuned to the region.
   const triggers = yearRound
-    ? ['70°+ weekends', 'Heavy rain', 'Storm/hurricane prep']
-    : ['70°+ weekends', 'First frost', 'Freeze warning'];
+    ? ['70°+ weekend', 'Heavy rain', 'Storm/hurricane prep', 'Freeze warning']
+    : ['70°+ weekend', 'First frost', 'Frost warning', 'Freeze warning', 'Ice storm'];
 
   const plan = [];
   for (let i = 0; i < monthsCount; i += 1) {
     const m = (startIdx + i) % 12;
     const season = peakMonths.includes(m) ? 'Peak' : (offMonths.includes(m) ? 'Off-Season' : 'Shoulder');
+    const monthTriggers = season === 'Peak'
+      ? warmTriggers
+      : season === 'Off-Season'
+        ? coldTriggers.slice(0, 3)
+        : ['70°+ weekend', 'First frost', 'Frost warning'];
     plan.push({
       month: monthNames[m],
       season,
@@ -498,7 +506,7 @@ function buildFallbackEstimate(payload) {
         : season === 'Off-Season'
           ? 'Protect your RV: winterize, service & save.'
           : 'Get road-ready for the season ahead.',
-      weather_triggers: triggers
+      weather_triggers: monthTriggers
     });
   }
 

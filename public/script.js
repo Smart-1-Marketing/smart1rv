@@ -6,7 +6,7 @@ const LEAD_ID = (function(){ try { return crypto.randomUUID(); } catch(e){ retur
 // while the visitor is still filling out the form (avoids the first-submit stall).
 (function warmup(){ try { fetch(`${API_BASE}/health`, { method:'GET', cache:'no-store', keepalive:true }).catch(function(){}); } catch(e){} })();
 
-const ALL_WEATHER_TRIGGERS = ['First 50°–60° forecast','60°+ forecast','70°+ weekend','Sunny weekend','Holiday weekend forecast','Heavy rain','Thunderstorms','High wind','Severe storm watch','85°+ forecast','90°+ heat','Heat advisory','Heat index 100°+','First frost','Freeze warning','Snow forecast','Cold snap under 45°','Tropical storm or hurricane watch','Snowbird season'];
+const ALL_WEATHER_TRIGGERS = ['First 50°–60° forecast','60°+ forecast','70°+ weekend','Sunny weekend','Holiday weekend forecast','Heavy rain','Thunderstorms','High wind','Severe storm watch','85°+ forecast','90°+ heat','Heat advisory','Heat index 100°+','First frost','Frost warning','Freeze warning','Ice storm','Snow forecast','Cold snap under 45°','Tropical storm or hurricane watch','Snowbird season'];
 const AUDIENCE_TARGETING = [['In-Market RV Buyer Data','households actively shopping for RVs'],['Campground & State-Park Geotargeting','reach campers where they camp'],['Location Look-Back Retargeting','recent campground / RV-park visitors']];
 const PACKAGE_TIERS = [
   { key:'Starter', amount:3500, tagline:'Best for smaller or single-location markets testing weather-triggered demand.', includes:['Core CTV, Streaming Radio & Targeted Display','Primary weather triggers for your region','Campground & state-park geotargeting'] },
