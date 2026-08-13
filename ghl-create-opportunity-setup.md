@@ -18,13 +18,19 @@ creating duplicates (handled in Step 3).
 1. **Create a Pipeline** (e.g. *Smart RV Demand*) with stages such as:
    `New Lead → Report Previewed → Full Report Unlocked → Consult Booked → Proposal Sent → Won/Lost`.
 2. **Deploy the current server** so the `opportunity_note` field exists in the webhook. Confirm at
-   `https://smart1rv.onrender.com/health` → `build` should read `2026-07-27-opportunity-note`.
+   `https://smart1rv.onrender.com/health` → `build` should read `2026-08-10-consistency-pass`.
 3. **Capture a webhook sample.** After deploy, submit the live form once so GHL has real sample data
    (including `opportunity_note`) to map from.
 
-> No custom fields needed. The `smart1rv_*` fields are optional and only worth adding later if you
-> want to *filter or automate* on specific values (package, region, radius). For "open the
-> opportunity and read the summary," skip them.
+> No custom fields needed for the basic build. The fields in
+> `fields/smart1rv-custom-fields.json` (bare snake_case keys matching the webhook payload) are
+> optional and only worth adding if you want to *filter or automate* on specific values (package,
+> region, radius, proposal PDF URL). For "open the opportunity and read the summary," skip them.
+>
+> **Native field mappings cover the rest:** `dealership_name` → native Business/Company Name,
+> `contact_name` → native First/Last Name, `city`/`state`/`zip`/`address` → native City, State,
+> Postal Code, Street Address, and `website_url` → native Website. Do NOT create custom fields
+> for those — map them in Step 1 below.
 
 ---
 

@@ -8,6 +8,22 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
+  <!-- Page-load overlay: navy + Smart 1 wordmark + campfire animation, hidden once the page is ready. -->
+  <div id="srvPageLoader" class="srv-pageloader" aria-hidden="true">
+    <div class="srv-pageloader-mark">SMART<span>1</span>MARKETING</div>
+    <svg class="cf-svg" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+      <ellipse class="cf-glow" cx="80" cy="118" rx="52" ry="20" fill="#F0A93B"/>
+      <g><rect x="40" y="120" width="80" height="12" rx="6" fill="#7a4a24" transform="rotate(-11 80 126)"/>
+      <rect x="40" y="120" width="80" height="12" rx="6" fill="#98622f" transform="rotate(11 80 126)"/></g>
+      <path class="cf-flame cf-f1" d="M80 44 C58 80,58 106,80 124 C102 106,102 80,80 44 Z" fill="#E8532B"/>
+      <path class="cf-flame cf-f2" d="M80 64 C67 88,67 106,80 120 C93 106,93 88,80 64 Z" fill="#F5A623"/>
+      <path class="cf-flame cf-f3" d="M80 82 C73 96,73 108,80 118 C87 108,87 96,80 82 Z" fill="#FFD65A"/>
+      <circle class="cf-spark cf-s1" cx="66" cy="86" r="2.4"/><circle class="cf-spark cf-s2" cx="94" cy="80" r="2"/>
+      <circle class="cf-spark cf-s3" cx="80" cy="74" r="2.6"/><circle class="cf-spark cf-s4" cx="72" cy="92" r="1.8"/>
+    </svg>
+    <p class="srv-pageloader-text">Loading…</p>
+  </div>
+
   <main id="smart-rv-demand-form">
     <div class="srv-progress" aria-hidden="true">
       <div class="srv-progress-bar" id="srvProgressBar"></div>
@@ -95,5 +111,19 @@
   </main>
 
   <script src="/script.js"></script>
+  <script>
+    (function(){
+      var loader = document.getElementById('srvPageLoader');
+      if (!loader) return;
+      function hide(){
+        if (!loader.parentNode) return;
+        loader.classList.add('is-hidden');
+        setTimeout(function(){ if (loader.parentNode) loader.parentNode.removeChild(loader); }, 450);
+      }
+      if (document.readyState === 'complete') hide();
+      else window.addEventListener('load', hide);
+      setTimeout(hide, 4000); // safety: never trap the visitor behind the overlay
+    })();
+  </script>
 </body>
 </html>

@@ -1,128 +1,110 @@
 [
   {
-    "name": "Dealership Name",
-    "key": "smart1rv_dealership_name",
-    "dataType": "TEXT",
-    "placeholder": "ABC RV Center"
-  },
-  {
-    "name": "Dealer Contact Name",
-    "key": "smart1rv_dealer_contact_name",
-    "dataType": "TEXT",
-    "placeholder": "Contact Name"
-  },
-  {
-    "name": "Dealer Website URL",
-    "key": "smart1rv_dealer_website_url",
-    "dataType": "TEXT",
-    "placeholder": "https://example.com"
-  },
-  {
-    "name": "Dealer Street Address",
-    "key": "smart1rv_dealer_street_address",
-    "dataType": "TEXT",
-    "placeholder": "123 Main Street"
-  },
-  {
-    "name": "Dealer City",
-    "key": "smart1rv_dealer_city",
-    "dataType": "TEXT",
-    "placeholder": "City"
-  },
-  {
-    "name": "Dealer State",
-    "key": "smart1rv_dealer_state",
-    "dataType": "TEXT",
-    "placeholder": "State"
-  },
-  {
-    "name": "Dealer ZIP",
-    "key": "smart1rv_dealer_zip",
-    "dataType": "TEXT",
-    "placeholder": "ZIP Code"
-  },
-  {
     "name": "Sales Radius Miles",
-    "key": "smart1rv_sales_radius_miles",
+    "key": "sales_radius_miles",
     "dataType": "TEXT",
     "placeholder": "75"
   },
   {
     "name": "Service Radius Miles",
-    "key": "smart1rv_service_radius_miles",
+    "key": "service_radius_miles",
     "dataType": "TEXT",
     "placeholder": "40"
   },
   {
     "name": "Primary Campaign Goal",
-    "key": "smart1rv_primary_campaign_goal",
+    "key": "primary_goal",
     "dataType": "LARGE_TEXT",
-    "placeholder": "New RV sales, used RV sales, service appointments"
+    "placeholder": "All RV sales goals: new RV sales, used RV sales, trade-ins, and financing"
   },
   {
     "name": "Main Service Opportunity",
-    "key": "smart1rv_main_service_opportunity",
-    "dataType": "TEXT",
+    "key": "main_service_opportunity",
+    "dataType": "LARGE_TEXT",
     "placeholder": "Winterization, A/C service, roof inspection"
   },
   {
     "name": "Preferred Package Level",
-    "key": "smart1rv_preferred_package_level",
+    "key": "package_level",
     "dataType": "TEXT",
     "placeholder": "$5,000/month SmartForecast"
   },
   {
     "name": "Selected Weather Triggers Text",
-    "key": "smart1rv_selected_weather_triggers_text",
+    "key": "selected_weather_triggers_text",
     "dataType": "LARGE_TEXT",
     "placeholder": "70°+ weekend, Heavy rain, Freeze warning"
   },
   {
     "name": "Campground Estimate Range",
-    "key": "smart1rv_campground_estimate_range",
+    "key": "campground_estimate_range",
     "dataType": "TEXT",
     "placeholder": "35–50 campgrounds and RV parks"
   },
   {
     "name": "Estimated Site Range",
-    "key": "smart1rv_estimated_site_range",
+    "key": "estimated_site_range",
     "dataType": "TEXT",
     "placeholder": "2,800–4,250 estimated RV/camping sites"
   },
   {
     "name": "Estimated Peak Season Reach Range",
-    "key": "smart1rv_estimated_peak_season_reach_range",
+    "key": "estimated_peak_season_reach_range",
     "dataType": "TEXT",
     "placeholder": "52,000–79,000 estimated peak-season camper reach"
   },
   {
     "name": "Estimate Disclaimer",
-    "key": "smart1rv_estimate_disclaimer",
+    "key": "estimate_disclaimer",
     "dataType": "LARGE_TEXT",
     "placeholder": "Planning estimate; not an audited count."
   },
   {
     "name": "Recommended Package",
-    "key": "smart1rv_recommended_package",
+    "key": "recommended_package",
     "dataType": "TEXT",
     "placeholder": "$5,000/month SmartForecast"
   },
   {
     "name": "Dealer Summary",
-    "key": "smart1rv_dealer_summary",
+    "key": "dealer_summary",
     "dataType": "LARGE_TEXT",
     "placeholder": "Dealer-specific opportunity summary"
   },
   {
     "name": "Month By Month Plan Text",
-    "key": "smart1rv_month_by_month_plan_text",
+    "key": "month_by_month_plan_text",
     "dataType": "LARGE_TEXT",
     "placeholder": "August: Mid-season upgrade campaign..."
   },
   {
     "name": "Proposal Summary Text",
-    "key": "smart1rv_proposal_summary_text",
+    "key": "proposal_summary_text",
     "dataType": "LARGE_TEXT",
     "placeholder": "Proposal-ready Smart RV Demand summary"
+  },
+  {
+    "name": "Proposal PDF URL",
+    "key": "proposal_pdf_url",
+    "dataType": "TEXT",
+    "placeholder": "https://res.cloudinary.com/.../rv-reports/....pdf"
+  },
+  {
+    "name": "Lead Stage",
+    "key": "lead_stage",
+    "dataType": "TEXT",
+    "placeholder": "Full Report Unlocked"
+  },
+  {
+    "name": "Market Climate Region",
+    "key": "market_climate_region",
+    "dataType": "TEXT",
+    "placeholder": "Northern / Seasonal RV Market"
+  },
+  {
+    "name": "Suggested Monthly Budget Text",
+    "key": "suggested_monthly_budget_text",
+    "dataType": "TEXT",
+    "placeholder": "$5,000/month at peak"
   }
 ]

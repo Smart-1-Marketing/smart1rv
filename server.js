@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import { buildProposalPdf, uploadPdfToGhlMedia, proposalFileName } from './proposal.js';
+import { buildProposalPdf, uploadPdfToGhlMedia, uploadPdfToCloudinary, proposalFileName } from './proposal.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +13,9 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .filter(Boolean);
 
 const allowAllOrigins = allowedOrigins.length === 0 || allowedOrigins.includes('*');
+if (allowAllOrigins) {
+  console.warn('ALLOWED_ORIGINS is not set (or contains "*") — CORS is open to all origins. Set ALLOWED_ORIGINS in production.');
+}
 
 app.use(cors({
   origin(origin, callback) {
@@ -296,9 +299,11 @@ function applyBudgets(estimate) {
 function buildProposalSummaryText(payload, estimate) {
   const triggers = (estimate.best_weather_triggers || []).join(', ');
   const channels = (estimate.recommended_channels || []).join(', ');
+  const location = [[payload.city, payload.state].filter(Boolean).join(', '), payload.zip]
+    .filter(Boolean).join(' ');
   return [
     `Smart RV Demand Package for ${payload.dealership_name}`,
-    `Location: ${payload.city}, ${payload.state} ${payload.zip}`,
+    `Location: ${location}`,
     `Market Type: ${estimate.market_climate_region}`,
     `Sales Radius: ${payload.sales_radius_miles} miles | Service Radius: ${payload.service_radius_miles} miles`,
     `Estimated Campgrounds/RV Parks: ${estimate.campground_count_low}–${estimate.campground_count_high}`,
@@ -559,7 +564,7 @@ async function sendToSmart1Suite(payload) {
 }
 
 // Bump this whenever you deploy so /health confirms the running build.
-const BUILD = '2026-08-02-reliability-cache-mobile';
+const BUILD = '2026-08-10-consistency-pass';
 
 app.get('/health', (req, res) => {
   res.json({
@@ -592,7 +597,11 @@ const estimateCache = new Map(); // key -> { estimate, expires }
 
 function estimateCacheKey(formData) {
   const zip = String(formData.zip || '').replace(/\D/g, '').slice(0, 5);
-  return `${zip}|${formData.sales_radius_miles || ''}|${formData.service_radius_miles || ''}`;
+  // The cached estimate's dealer_summary names the dealership, so the key MUST
+  // include the dealership too — otherwise Dealer B would get Dealer A's summary.
+  const dealerSlug = String(formData.dealership_name || '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  return `${zip}|${formData.sales_radius_miles || ''}|${formData.service_radius_miles || ''}|${dealerSlug}`;
 }
 
 function getCachedEstimate(key) {
@@ -615,9 +624,51 @@ function setCachedEstimate(key, estimate) {
 // Small indirection so tests can run without a real clock dependency.
 function DateNow() { return Date.now(); }
 
+// ---- Simple in-memory rate limit (per IP) for the expensive AI endpoint ----
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 10);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000); // 15 min
+const rateBuckets = new Map(); // ip -> { count, resetAt }
+
+function rateLimited(ip) {
+  const now = DateNow();
+  let bucket = rateBuckets.get(ip);
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateBuckets.set(ip, bucket);
+  }
+  bucket.count += 1;
+  // Opportunistic cleanup so the map can't grow without bound.
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) { if (v.resetAt <= now) rateBuckets.delete(k); }
+  }
+  return bucket.count > RATE_LIMIT_MAX;
+}
+
+// Minimal shape check for a client-supplied reuse_estimate. Accept it only when it
+// carries the expected top-level keys of a real estimate; otherwise recompute.
+const REUSE_ESTIMATE_REQUIRED_KEYS = [
+  'campground_count_low', 'campground_count_high',
+  'estimated_site_count_low', 'estimated_site_count_high',
+  'estimated_peak_season_reach_low', 'estimated_peak_season_reach_high',
+  'recommended_package', 'dealer_summary', 'month_by_month_plan'
+];
+
+function isValidReuseEstimate(candidate) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+  if (!Array.isArray(candidate.month_by_month_plan)) return false;
+  return REUSE_ESTIMATE_REQUIRED_KEYS.every(key => key in candidate);
+}
+
 app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
   try {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    if (rateLimited(ip)) {
+      return res.status(429).json({ ok: false, error: 'Too many requests. Please try again in a few minutes.' });
+    }
+
     const formData = normalizeFormPayload(req.body);
+    // Backfill state from ZIP so location renders and region logic never sees a blank state.
+    if (!formData.state) formData.state = stateFromZip(formData.zip);
 
     // Only dealership + ZIP are required. Email is captured later (to unlock the full report);
     // if it's missing we still save the lead using a placeholder inbox so nothing is lost.
@@ -635,12 +686,23 @@ app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
     const lead_id = String(req.body.lead_id || '').slice(0, 64);
     const lead_stage = String(req.body.lead_stage || (emailProvided ? 'Full Report Unlocked' : 'Preview — email not yet provided')).slice(0, 80);
 
+    // Attribution (additive): pass through any UTM/click-id/referrer info the client sent.
+    const ATTRIBUTION_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'referrer_url', 'landing_page_url'];
+    const attribution = {};
+    for (const key of ATTRIBUTION_KEYS) {
+      const value = req.body[key];
+      if (typeof value === 'string' && value) attribution[key] = value.slice(0, 300);
+    }
+
     // Reuse the estimate/PDF from the preview call so the "unlock" call is cheap and consistent
     // (no second OpenAI call, no duplicate PDF), and the displayed numbers never drift.
     let estimate;
     let estimate_source = 'ai';
-    if (req.body.reuse_estimate && typeof req.body.reuse_estimate === 'object') {
+    if (isValidReuseEstimate(req.body.reuse_estimate)) {
       estimate = req.body.reuse_estimate;
+      // Never trust client-supplied budget math: recompute from the recommended
+      // package + season labels so tampered numbers can't reach the webhook/PDF.
+      applyBudgets(estimate);
       estimate_source = 'reused';
     } else {
       const cacheKey = estimateCacheKey(formData);
@@ -668,16 +730,31 @@ app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
     }
     estimate.estimate_source = estimate_source;
 
-    // Generate the proposal PDF and upload it to Smart 1 Suite media so the workflow can attach/email it.
+    // Generate the proposal PDF only on the unlock call (a real email was provided) —
+    // the anonymous preview skips it so previews stay fast and cheap.
+    // Cloudinary is PRIMARY storage; GHL media upload is kept as secondary so the
+    // Suite workflow can still attach the file when configured.
     // Wrapped so a PDF or upload failure NEVER blocks the lead from reaching Smart 1 Suite.
     const proposal_pdf_filename = proposalFileName(formData);
     let proposal_pdf_url = String(req.body.reuse_pdf_url || '');
-    if (!proposal_pdf_url && String(process.env.PROPOSAL_PDF_ENABLED || 'true').toLowerCase() !== 'false') {
+    if (!proposal_pdf_url && emailProvided && String(process.env.PROPOSAL_PDF_ENABLED || 'true').toLowerCase() !== 'false') {
       try {
         const pdfBuffer = await buildProposalPdf(formData, estimate, new Date().toLocaleDateString('en-US'));
-        proposal_pdf_url = (await uploadPdfToGhlMedia(pdfBuffer, proposal_pdf_filename)) || '';
+        let cloudinaryUrl = '';
+        try {
+          cloudinaryUrl = (await uploadPdfToCloudinary(pdfBuffer, proposal_pdf_filename)) || '';
+        } catch (cloudErr) {
+          console.error('Cloudinary PDF upload failed (falling back to GHL media):', cloudErr.message);
+        }
+        let ghlUrl = '';
+        try {
+          ghlUrl = (await uploadPdfToGhlMedia(pdfBuffer, proposal_pdf_filename)) || '';
+        } catch (ghlErr) {
+          console.error('GHL media PDF upload failed:', ghlErr.message);
+        }
+        proposal_pdf_url = cloudinaryUrl || ghlUrl || '';
         if (!proposal_pdf_url) {
-          console.warn('Proposal PDF generated but not uploaded (GHL media credentials not set).');
+          console.warn('Proposal PDF generated but not uploaded (Cloudinary/GHL media not configured).');
         }
       } catch (pdfErr) {
         console.error('Proposal PDF generation/upload failed (continuing without it):', pdfErr.message);
@@ -693,6 +770,7 @@ app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
       email_provided: emailProvided,
       placeholder_email_used: !emailProvided,
       submitted_at: new Date().toISOString(),
+      ...attribution,
       ...formData,
       selected_weather_triggers: formData.weather_triggers,
       selected_weather_triggers_text: formData.weather_triggers.join(', '),

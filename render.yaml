@@ -17,11 +17,20 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
-      # Proposal PDF -> Smart 1 Suite media library (populates proposal_pdf_url)
+      # Proposal PDF: Cloudinary is PRIMARY storage (folder rv-reports);
+      # GHL media library is secondary. Cloudinary secure_url wins for proposal_pdf_url.
       - key: PROPOSAL_PDF_ENABLED
         value: "true"
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: CONSULT_URL
+        value: https://smart1marketing.com/rvmarketingconsult
       - key: GHL_MEDIA_API_VERSION
         value: "2021-07-28"
+      - key: GHL_API_VERSION
+        value: "2021-07-28"
+      - key: GHL_MEDIA_HOSTED
+        value: ""
       - key: GHL_PRIVATE_INTEGRATION_TOKEN
         sync: false
       - key: GHL_LOCATION_ID

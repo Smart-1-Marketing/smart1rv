@@ -19,29 +19,30 @@ The fields are defined here:
 fields/smart1rv-custom-fields.json
 ```
 
-The initial field set is intentionally lean and document-friendly:
+The field set is intentionally lean and document-friendly. Field keys match the bare
+snake_case keys the webhook actually sends (no `smart1rv_` prefix), and fields that
+duplicate native GHL contact fields (Business Name, First/Last Name, City, State,
+Postal Code, Street, Website) are NOT created — map those to the native contact
+fields in the workflow instead.
 
-- Dealership Name
-- Dealer Contact Name
-- Dealer Website URL
-- Dealer Street Address
-- Dealer City
-- Dealer State
-- Dealer ZIP
-- Sales Radius Miles
-- Service Radius Miles
-- Primary Campaign Goal
-- Main Service Opportunity
-- Preferred Package Level
-- Selected Weather Triggers Text
-- Campground Estimate Range
-- Estimated Site Range
-- Estimated Peak Season Reach Range
-- Estimate Disclaimer
-- Recommended Package
-- Dealer Summary
-- Month By Month Plan Text
-- Proposal Summary Text
+- Sales Radius Miles (`sales_radius_miles`)
+- Service Radius Miles (`service_radius_miles`)
+- Primary Campaign Goal (`primary_goal`)
+- Main Service Opportunity (`main_service_opportunity`)
+- Preferred Package Level (`package_level`)
+- Selected Weather Triggers Text (`selected_weather_triggers_text`)
+- Campground Estimate Range (`campground_estimate_range`)
+- Estimated Site Range (`estimated_site_range`)
+- Estimated Peak Season Reach Range (`estimated_peak_season_reach_range`)
+- Estimate Disclaimer (`estimate_disclaimer`)
+- Recommended Package (`recommended_package`)
+- Dealer Summary (`dealer_summary`)
+- Month By Month Plan Text (`month_by_month_plan_text`)
+- Proposal Summary Text (`proposal_summary_text`)
+- Proposal PDF URL (`proposal_pdf_url`)
+- Lead Stage (`lead_stage`)
+- Market Climate Region (`market_climate_region`)
+- Suggested Monthly Budget Text (`suggested_monthly_budget_text`)
 
 ## Required HighLevel / Smart 1 Suite API items
 
@@ -70,7 +71,7 @@ Add these variables:
 ```text
 GHL_LOCATION_ID=your_location_id_here
 GHL_PRIVATE_INTEGRATION_TOKEN=your_private_integration_token_here
-GHL_API_VERSION=v3
+GHL_API_VERSION=2021-07-28
 SUITE_FIELD_DRY_RUN=true
 SUITE_SKIP_EXISTING=true
 ```

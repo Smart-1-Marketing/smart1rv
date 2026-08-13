@@ -5,7 +5,7 @@ import path from 'node:path';
 const BASE_URL = process.env.GHL_BASE_URL || 'https://services.leadconnectorhq.com';
 const LOCATION_ID = process.env.GHL_LOCATION_ID;
 const TOKEN = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;
-const VERSION = process.env.GHL_API_VERSION || 'v3';
+const VERSION = process.env.GHL_API_VERSION || '2021-07-28';
 const FIELDS_FILE = process.env.SUITE_FIELDS_FILE || 'fields/smart1rv-custom-fields.json';
 const DRY_RUN = String(process.env.SUITE_FIELD_DRY_RUN || 'true').toLowerCase() !== 'false';
 const SKIP_EXISTING = String(process.env.SUITE_SKIP_EXISTING || 'true').toLowerCase() !== 'false';

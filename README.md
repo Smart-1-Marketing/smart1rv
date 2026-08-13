@@ -6,19 +6,16 @@ This project creates a multi-step embedded form for RV dealers. The form collect
 
 ## What this version does
 
-- Collects RV dealer contact details
-- Collects dealer address and website URL
-- Collects buyer and service travel radius
-- Collects campaign goals and weather-trigger selections
-- Uses OpenAI to estimate:
+- **Progressive lead capture** — minimal business info first (dealership, contact name, ZIP, website, radii); email/phone are only requested at the final gate that unlocks the full report + PDF.
+- **Partial lead capture** — the anonymous preview POST doubles as a partial lead (`lead_stage: "Preview — email not yet provided"`, placeholder email). If a visitor fills step 1 but never clicks Build, a `sendBeacon` on pagehide/visibility-hidden fires the same preview POST so the lead is never lost. UTM/gclid/fbclid/referrer attribution is merged into every payload.
+- Uses OpenAI (with retry + deterministic regional fallback and a per-ZIP/radius/dealer cache) to estimate:
   - Campgrounds/RV parks in the market
   - Estimated RV/camping sites
   - Estimated peak-season camper reach
-  - Recommended package
-  - Recommended weather triggers
-  - Month-by-month campaign plan
-- Sends all form data and AI-estimated fields to Smart 1 Suite via webhook
-- Lets Smart 1 Suite handle document generation and email follow-up
+  - Recommended package + month-by-month plan (budgets computed server-side)
+- **Server-side branded PDF** (pdfkit) generated on the unlock call only, uploaded to **Cloudinary (primary, folder `rv-reports`)** with the GHL media library as secondary; `proposal_pdf_url` goes to both the webhook and the browser, where the "Download Proposal (PDF)" button opens it (html2pdf stays as a client-side fallback when no URL exists).
+- Sends all form data and AI-estimated fields to Smart 1 Suite via webhook (non-fatal on failure), including a pre-formatted `opportunity_note`.
+- Rate-limits the estimate endpoint (default 10 requests / 15 min / IP) and validates any client-supplied `reuse_estimate` before use (budgets are always recomputed server-side).
 
 ## Important estimate disclaimer
 
@@ -30,14 +27,21 @@ This version does not use Google Maps, Google Places, OpenStreetMap, or paid ZIP
 
 ```txt
 smart1rv/
-  server.js              # Express backend
+  server.js              # Express backend (estimate + webhook + rate limit)
+  proposal.js            # pdfkit proposal PDF + Cloudinary/GHL media uploads
   package.json           # Node dependencies and scripts
-  render.yaml            # Optional Render Blueprint config
-  .env.example           # Environment variable template
+  render.yaml            # Render Blueprint config (declares all env vars)
+  .env.example           # Environment variable template (all env vars)
+  scripts/
+    createSuiteFields.js # Optional GHL custom-field creation utility
+  fields/
+    smart1rv-custom-fields.json  # True custom fields (bare snake_case webhook keys)
   public/
-    index.html           # Full working form page
-    styles.css           # Form styling
-    script.js            # Form behavior and API calls
+    index.html           # Full working form page (page-load overlay + campfire loader)
+    styles.css           # Form styling (brand tokens: navy #0A2240, blue #009ED2)
+    script.js            # Form behavior, partial capture, API calls
+  smart1suiteembed.html  # Current single-file Suite embed
+  rv-landing-page.html   # Current landing page
 ```
 
 ---
@@ -56,15 +60,46 @@ npm install
 cp .env.example .env
 ```
 
-3. Add your environment variables:
+3. Add your environment variables (see `.env.example` for the complete annotated list):
 
 ```env
+# Required
 OPENAI_API_KEY=sk-your-openai-key
 SMART1_SUITE_WEBHOOK_URL=https://your-smart-1-suite-webhook-url
+
+# Common
 OPENAI_MODEL=gpt-4o-mini
 ALLOWED_ORIGINS=http://localhost:3000
 NODE_ENV=development
+PORT=3000
+
+# Proposal PDF (Cloudinary primary, GHL media secondary)
+PROPOSAL_PDF_ENABLED=true
+CLOUDINARY_URL=cloudinary://key:secret@cloud-name
+CONSULT_URL=https://smart1marketing.com/rvmarketingconsult
+GHL_PRIVATE_INTEGRATION_TOKEN=...
+GHL_LOCATION_ID=...
+GHL_MEDIA_UPLOAD_URL=https://services.leadconnectorhq.com/medias/upload-file
+GHL_MEDIA_API_VERSION=2021-07-28
+GHL_MEDIA_HOSTED=
+
+# Field-creation script
+GHL_BASE_URL=https://services.leadconnectorhq.com
+GHL_API_VERSION=2021-07-28
+SUITE_FIELDS_FILE=fields/smart1rv-custom-fields.json
+SUITE_FIELD_DRY_RUN=true
+SUITE_SKIP_EXISTING=true
+INCLUDE_FIELD_KEY=true
+
+# Tuning
+OPENAI_TIMEOUT_MS=22000
+OPENAI_MAX_ATTEMPTS=2
+PLACEHOLDER_LEAD_EMAIL=rvdealer@smart1marketing.com
+ESTIMATE_CACHE_TTL_MS=86400000
+ESTIMATE_CACHE_MAX=500
 ```
+
+If `CLOUDINARY_URL` is unset, the PDF falls back to the GHL media URL; if neither is configured the on-screen Download button falls back to client-side html2pdf.
 
 4. Start the server:
 
@@ -130,6 +165,12 @@ SMART1_SUITE_WEBHOOK_URL=your Smart 1 Suite webhook URL
 OPENAI_MODEL=gpt-4o-mini
 NODE_ENV=production
 ALLOWED_ORIGINS=https://your-smart1-site-domain.com,https://www.your-smart1-site-domain.com
+CLOUDINARY_URL=cloudinary://key:secret@cloud-name
+CONSULT_URL=https://smart1marketing.com/rvmarketingconsult
+GHL_PRIVATE_INTEGRATION_TOKEN=your private integration token
+GHL_LOCATION_ID=your location id
+GHL_MEDIA_API_VERSION=2021-07-28
+GHL_API_VERSION=2021-07-28
 ```
 
 For initial testing, you can temporarily leave `ALLOWED_ORIGINS` blank. Blank allows requests from any origin. After testing, lock it down to the Smart 1 Sites domain where the form is embedded.
@@ -152,6 +193,7 @@ You should see:
 {
   "ok": true,
   "service": "smart1rv",
+  "build": "2026-08-10-consistency-pass",
   "timestamp": "..."
 }
 ```

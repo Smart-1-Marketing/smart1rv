@@ -77,6 +77,7 @@ Expected response:
 {
   "ok": true,
   "service": "smart1rv",
+  "build": "2026-08-10-consistency-pass",
   "timestamp": "..."
 }
 ```

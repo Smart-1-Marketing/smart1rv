@@ -107,4 +107,4 @@ Pre-composed:
 ---
 
 **Deploy note:** push the updated `server.js` to GitHub so Render redeploys. Verify at
-`https://smart1rv.onrender.com/health` — the `build` value should read `2026-07-27-opportunity-note`.
+`https://smart1rv.onrender.com/health` — the `build` value should read `2026-08-10-consistency-pass`.

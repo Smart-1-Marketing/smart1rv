@@ -1,6 +1,6 @@
 :root {
-  --smart-navy: #1A2E58;
-  --smart-blue: #28477f;
+  --smart-navy: #0A2240;
+  --smart-blue: #009ED2;
   --smart-light: #f5f8ff;
   --smart-border: #dce4f2;
   --smart-text: #172033;
@@ -24,7 +24,7 @@ body {
   background: #ffffff;
   padding: 34px;
   border-radius: 18px;
-  box-shadow: 0 14px 45px rgba(26, 46, 88, 0.12);
+  box-shadow: 0 14px 45px rgba(10, 34, 64, 0.12);
 }
 
 h2 {
@@ -201,9 +201,11 @@ button:disabled { opacity: .65; cursor: not-allowed; }
 .srv-stat {
   background: #fff;
   border: 1px solid var(--smart-border);
+  border-top: 3px solid var(--smart-blue);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
+  box-shadow: 0 4px 14px rgba(10, 34, 64, 0.06);
 }
 
 .srv-stat .opportunity-number {
@@ -390,7 +392,7 @@ button:disabled { opacity: .65; cursor: not-allowed; }
 
 .srv-tier-rec {
   border-color: var(--smart-navy);
-  box-shadow: 0 0 0 2px rgba(26, 46, 88, 0.12);
+  box-shadow: 0 0 0 2px rgba(10, 34, 64, 0.12);
 }
 
 .srv-tier-head {
@@ -609,6 +611,34 @@ button:disabled { opacity: .65; cursor: not-allowed; }
 .cf-sub{text-align:center;color:var(--smart-muted);font-size:13px;margin:0;}
 .cf-dots::after{display:inline-block;content:'';animation:cfDots 1.4s steps(4,end) infinite;}
 @keyframes cfDots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}}
+
+/* ===== Page-load overlay (SPEC §7a) ===== */
+.srv-pageloader{position:fixed;inset:0;z-index:9999;background:var(--smart-navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;transition:opacity .4s ease;}
+.srv-pageloader.is-hidden{opacity:0;pointer-events:none;}
+.srv-pageloader-mark{color:#fff;font-weight:800;font-size:22px;letter-spacing:.14em;}
+.srv-pageloader-mark span{color:var(--smart-blue);padding:0 3px;}
+.srv-pageloader .cf-svg{width:120px;height:120px;}
+.srv-pageloader-text{color:#cfe4f5;font-size:14px;font-weight:600;margin:0;}
+
+/* ===== Budget compare bars (flat vs weather-triggered) ===== */
+.srv-bar-row{margin:10px 0 4px;}
+.srv-bar-label{display:block;color:var(--smart-muted);font-size:13px;font-weight:700;margin-bottom:4px;}
+.srv-bar-track{background:#eef2f8;border-radius:8px;overflow:hidden;height:30px;}
+.srv-bar-fill{height:100%;display:flex;align-items:center;border-radius:8px;min-width:90px;}
+.srv-bar-fill span{color:#fff;font-weight:800;font-size:13px;padding:0 12px;white-space:nowrap;}
+.srv-bar-flat{background:var(--smart-muted);}
+.srv-bar-plan{background:var(--smart-blue);}
+
+/* ===== On-screen report footer ===== */
+.srv-report-footer{border-top:1px solid var(--smart-border);margin-top:18px;padding-top:12px;text-align:center;color:var(--smart-muted);font-size:13px;font-weight:600;}
+.srv-report-footer a{color:var(--smart-blue);text-decoration:none;}
+
+/* Honor reduced-motion: freeze the campfire + loader animations. */
+@media (prefers-reduced-motion: reduce) {
+  .cf-glow,.cf-flame,.cf-spark,.cf-dots::after{animation:none !important;}
+  .srv-pageloader{transition:none;}
+  .srv-progress-bar{transition:none;}
+}
 
 /* ===== Unlock / email gate ===== */
 .srv-teaser{margin-top:14px;padding:16px;border:1px dashed #c9d6ee;border-radius:12px;background:#fbfdff;}

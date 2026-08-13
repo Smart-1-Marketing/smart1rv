@@ -4,11 +4,12 @@
 // teal accent rule, spec strip, stat cards, benchmark bars, a navy "opportunity" box
 // with gold savings numbers, colored callouts, and page footers.
 import PDFDocument from 'pdfkit';
+import { v2 as cloudinary } from 'cloudinary';
 
-// ---- Palette -------------------------------------------------------------
-const HEADER = '#16294D';   // deep navy header band
-const NAVY   = '#1A2E58';   // headings / brand navy
-const BLUE   = '#28477F';
+// ---- Palette (Smart 1 canonical brand tokens) ----------------------------
+const HEADER = '#0A2240';   // deep navy header band
+const NAVY   = '#0A2240';   // headings / brand navy
+const BLUE   = '#009ED2';
 const TEAL   = '#19C6B0';    // accent rule + positive values
 const CYAN   = '#3EC6F0';    // logo accent + channel bar
 const GOLD   = '#F5B301';    // money / opportunity numbers
@@ -24,7 +25,7 @@ const PAGE_H = 792;
 const MARGIN = 54;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-const CONSULT_URL = 'https://smart1marketing.com/rvmarketingconsult';
+const CONSULT_URL = process.env.CONSULT_URL || 'https://smart1marketing.com/rvmarketingconsult';
 
 // Good / Better / Best pricing tiers (matched to market size by recommended package).
 const PACKAGE_TIERS = [
@@ -313,7 +314,7 @@ export function buildProposalPdf(formData, estimate, dateStr) {
       doc.y += 14;
 
       specStrip([
-        { label: 'Market', value: `${formData.city ? formData.city + ', ' : ''}${formData.state || ''} ${formData.zip || ''}`.trim() || (formData.zip || '—') },
+        { label: 'Market', value: [[formData.city, formData.state].filter(Boolean).join(', '), formData.zip].filter(Boolean).join(' ') || '—' },
         { label: 'Sales Radius', value: `${formData.sales_radius_miles || '—'} mi` },
         { label: 'Service Radius', value: `${formData.service_radius_miles || '—'} mi` },
         { label: 'Locations', value: formData.multiple_locations === 'Yes' ? 'Multiple' : 'Single' },
@@ -515,9 +516,11 @@ export function buildProposalPdf(formData, estimate, dateStr) {
         doc.page.margins.bottom = 0; // allow writing in the footer zone without triggering a page break
         const fy = PAGE_H - 46;
         doc.moveTo(MARGIN, fy - 6).lineTo(PAGE_W - MARGIN, fy - 6).lineWidth(0.8).strokeColor(BORDER).stroke();
-        doc.font('Helvetica').fontSize(7.5).fillColor(MUTED)
-          .text('Smart 1 Marketing · Directional assessment based on the information supplied. Benchmarks vary by market, competition, and geography.',
-            MARGIN, fy, { width: CONTENT_W - 60 });
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED)
+          .text('Smart 1 Marketing · (614) 536-0768 · smart1marketing.com', MARGIN, fy, { width: CONTENT_W - 60 });
+        doc.font('Helvetica').fontSize(7).fillColor(MUTED)
+          .text('Directional assessment based on the information supplied. Benchmarks vary by market, competition, and geography.',
+            MARGIN, fy + 11, { width: CONTENT_W - 60 });
         doc.font('Helvetica-Bold').fontSize(8).fillColor(MUTED)
           .text(`${i + 1} / ${range.count}`, PAGE_W - MARGIN - 60, fy, { width: 60, align: 'right' });
       }
@@ -529,7 +532,31 @@ export function buildProposalPdf(formData, estimate, dateStr) {
   });
 }
 
+// Upload the PDF to Cloudinary (PRIMARY storage) and return its secure URL.
+// Returns null if CLOUDINARY_URL is not configured; throws on an API error
+// (caller decides whether to swallow).
+export async function uploadPdfToCloudinary(buffer, filename) {
+  if (!process.env.CLOUDINARY_URL) return null;
+
+  const publicId = safeFileName(filename)
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) + '-' + Date.now();
+
+  const result = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'rv-reports', public_id: `${publicId}.pdf`, resource_type: 'raw', overwrite: true },
+      (err, res) => (err ? reject(err) : resolve(res))
+    );
+    stream.end(buffer);
+  });
+
+  return result?.secure_url || null;
+}
+
 // Upload the PDF to the Smart 1 Suite / HighLevel media library and return its public URL.
+// Kept as SECONDARY storage so the Suite workflow can still attach the file when configured.
 // Returns null if credentials are missing; throws on an API error (caller decides whether to swallow).
 export async function uploadPdfToGhlMedia(buffer, filename) {
   const token = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;

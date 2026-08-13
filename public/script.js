@@ -2,6 +2,17 @@
 const API_BASE = window.SMART1RV_API_BASE || '';
 const LEAD_ID = (function(){ try { return crypto.randomUUID(); } catch(e){ return 'rv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8); } })();
 
+// Attribution captured once at load (merged into every payload, additive).
+const ATTR = (function(){
+  const q = new URLSearchParams(location.search);
+  const keys = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid'];
+  const o = {};
+  keys.forEach(function(k){ const v = q.get(k); if (v) o[k] = v.slice(0,200); });
+  o.referrer_url = (document.referrer || '').slice(0,300);
+  o.landing_page_url = (q.get('s1_ref') || location.href).slice(0,300);
+  return o;
+})();
+
 // Warm the server the instant the page loads so a Render cold start finishes
 // while the visitor is still filling out the form (avoids the first-submit stall).
 (function warmup(){ try { fetch(`${API_BASE}/health`, { method:'GET', cache:'no-store', keepalive:true }).catch(function(){}); } catch(e){} })();
@@ -53,7 +64,7 @@ document.querySelectorAll('.srv-pillgroup').forEach(group => {
 function validatePillGroups(activeStep){let ok=true;activeStep.querySelectorAll('.srv-pillgroup[data-required="true"]').forEach(g=>{const h=document.querySelector(`input[name="${g.dataset.name}"]`);if(!h||!h.value)ok=false;});if(!ok&&pillError)pillError.hidden=false;return ok;}
 function validateCurrentStep(){const a=document.querySelector(`.srv-step[data-step="${currentStep}"]`);const req=a.querySelectorAll('input[required], select[required], textarea[required]');for(const f of req){if(f.type!=='hidden'&&!f.value){f.reportValidity();return false;}}if(!validatePillGroups(a))return false;return true;}
 
-function getPayload(extra){const data=new FormData(form);const p=Object.fromEntries(data.entries());p.weather_triggers=ALL_WEATHER_TRIGGERS.slice();p.lead_id=LEAD_ID;if(extra)Object.assign(p,extra);return p;}
+function getPayload(extra){const data=new FormData(form);const p=Object.fromEntries(data.entries());p.weather_triggers=ALL_WEATHER_TRIGGERS.slice();p.lead_id=LEAD_ID;Object.assign(p,ATTR);if(extra)Object.assign(p,extra);return p;}
 function fmt(v){return Number(v||0).toLocaleString();}
 function money(v){return '$'+Number(v||0).toLocaleString('en-US');}
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -69,6 +80,20 @@ function buildPackageDetails(e){
 }
 function wirePackageDetails(){const t=document.getElementById('srvPkgDetailsToggle');const d=document.getElementById('srvPkgDetails');if(!t||!d)return;t.addEventListener('click',()=>{const h=d.hasAttribute('hidden');if(h){d.removeAttribute('hidden');t.textContent='Hide package details';}else{d.setAttribute('hidden','');t.textContent='See package details';}});}
 
+function tiersHtml(e){
+  const rec=pkgBase(e);
+  return PACKAGE_TIERS.map(t=>{const r=t.amount===rec;return `<div class="srv-tier${r?' srv-tier-rec':''}"><div class="srv-tier-head"><span class="srv-tier-name">${esc(t.key)}</span>${r?'<span class="srv-tier-badge">Recommended</span>':''}</div><div class="srv-tier-price">${money(t.amount)}<span>/month</span></div><p class="srv-tier-tagline">${esc(t.tagline)}</p><ul class="srv-detail-list">${t.includes.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;}).join('');
+}
+function compareBarHtml(e){
+  const base=pkgBase(e);
+  const plan=Number(e.suggested_budget_total)||0;
+  const flat=base*12;
+  if(!flat||!plan)return '';
+  const frac=Math.min(100,Math.max(10,Math.round((plan/flat)*100)));
+  const pctLess=Math.max(0,Math.round((1-plan/flat)*100));
+  return `<div class="srv-report-section"><h3>How Your Budget Works Harder</h3><div class="srv-bar-row"><span class="srv-bar-label">Always-on flat schedule at peak rate</span><div class="srv-bar-track"><div class="srv-bar-fill srv-bar-flat" style="width:100%"><span>${money(flat)}/yr</span></div></div></div><div class="srv-bar-row"><span class="srv-bar-label">Weather-triggered plan</span><div class="srv-bar-track"><div class="srv-bar-fill srv-bar-plan" style="width:${frac}%"><span>${money(plan)}/yr</span></div></div></div><p class="srv-budget-note">That’s ${pctLess}% less budget for the same peak-season presence — spend steps down automatically when demand is low, instead of running flat all year.</p></div>`;
+}
+const FOOTER_HTML='<p class="srv-report-footer">Smart 1 Marketing · (614) 536-0768 · <a href="https://smart1marketing.com" target="_blank" rel="noopener">smart1marketing.com</a></p>';
 function regionHtml(e){return e.market_climate_region?`<div class="srv-report-section srv-region"><span class="srv-region-badge">${esc(e.market_climate_region)}</span>${e.market_region_reason?`<p>${esc(e.market_region_reason)}</p>`:''}</div>`:'';}
 function statsHtml(e){return `<div class="srv-stat-grid"><div class="srv-stat"><span class="opportunity-number">${fmt(e.campground_count_low)}–${fmt(e.campground_count_high)}</span><span class="srv-stat-label">campgrounds &amp; RV parks</span></div><div class="srv-stat"><span class="opportunity-number">${fmt(e.estimated_site_count_low)}–${fmt(e.estimated_site_count_high)}</span><span class="srv-stat-label">estimated RV / camping sites</span></div><div class="srv-stat"><span class="opportunity-number">${fmt(e.estimated_peak_season_reach_low)}–${fmt(e.estimated_peak_season_reach_high)}</span><span class="srv-stat-label">estimated peak-season camper reach</span></div></div>`;}
 
@@ -92,7 +117,9 @@ function renderFull(e){
     plan=`<div class="srv-report-section"><h3>Month-by-Month Campaign Plan &amp; Budget</h3><table class="srv-plan-table"><thead><tr><th>Month</th><th>Focus &amp; Triggers</th><th>Budget</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   const disc=e.estimate_disclaimer?`<p class="disclaimer">${esc(e.estimate_disclaimer)}</p>`:'';
-  box.innerHTML=`<p class="srv-report-intro">Based on ${esc(d)}’s ZIP code, selected buyer radius, and regional campground density, here’s your full weather-triggered RV demand plan:</p>${regionHtml(e)}${statsHtml(e)}${summary}${pkg}${channels}${targeting}${triggers}${budget}${plan}${disc}`;
+  const bars=compareBarHtml(e);
+  const tierSection=`<div class="srv-report-section"><h3>Package Levels — Good · Better · Best</h3><div class="srv-tier-grid">${tiersHtml(e)}</div></div>`;
+  box.innerHTML=`<p class="srv-report-intro">Based on ${esc(d)}’s ZIP code, selected buyer radius, and regional campground density, here’s your full weather-triggered RV demand plan:</p>${regionHtml(e)}${statsHtml(e)}${summary}${pkg}${channels}${targeting}${triggers}${bars}${budget}${tierSection}${plan}${disc}${FOOTER_HTML}`;
   wirePackageDetails();unlockPanel.style.display='none';resultActions.style.display='flex';
 }
 
@@ -106,6 +133,9 @@ async function postLead(extra){
 function loadHtml2Pdf(){return new Promise((res,rej)=>{if(window.html2pdf)return res();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('Could not load the PDF library.'));document.head.appendChild(s);});}
 function safeName(n){return String(n||'RV Dealer').replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' ').trim();}
 async function downloadProposal(){
+  // Preferred path: the server-generated proposal PDF (Cloudinary/GHL URL returned
+  // by the unlock call). html2pdf below is only a fallback when no URL exists.
+  if(proposalPdfUrl){window.open(proposalPdfUrl,'_blank','noopener');return;}
   if(!estimateData)return;
   const d=(getPayload().dealership_name||'RV Dealer').trim();
   const filename=`${safeName(d)} Weather Marketing Proposal.pdf`;
@@ -131,6 +161,7 @@ buildButton.addEventListener('click',async()=>{
   showStep(3);unlockPanel.style.display='none';resultActions.style.display='none';box.innerHTML=CAMPFIRE;buildButton.disabled=true;
   try{
     const result=await postLead({lead_stage:'Preview — email not yet provided'});
+    previewSent=true; // the preview POST doubles as the partial-lead capture
     estimateData=result.estimate;proposalPdfUrl=result.proposal_pdf_url||'';
     renderPreview(estimateData);
   }catch(error){
@@ -143,9 +174,36 @@ unlockBtn.addEventListener('click',async()=>{
   const emailEl=document.getElementById('srvEmail');
   if(!validEmail(emailEl.value)){unlockErr.hidden=false;emailEl.focus();return;}
   unlockErr.hidden=true;
+  // Show the full report immediately — the unlock POST (which also generates the
+  // server PDF) runs after and just enriches the lead + fills in the download URL.
   renderFull(estimateData);
   unlockBtn.disabled=true;
-  try{ await postLead({lead_stage:'Full Report Unlocked', reuse_estimate:estimateData, reuse_pdf_url:proposalPdfUrl}); }
+  try{
+    const result=await postLead({lead_stage:'Full Report Unlocked', reuse_estimate:estimateData, reuse_pdf_url:proposalPdfUrl});
+    if(result&&result.proposal_pdf_url)proposalPdfUrl=result.proposal_pdf_url;
+  }
   catch(err){ console.error('Enrich failed:',err); }
   finally{ unlockBtn.disabled=false; }
 });
+
+// ---- Partial lead capture (SPEC §3) ----------------------------------------
+// If the visitor filled step 1 (dealership + ZIP) but never clicked Build, fire
+// the same preview POST once via sendBeacon when the page is hidden/closed.
+let previewSent=false, partialSent=false;
+function sendPartialBeacon(){
+  if(previewSent||partialSent)return;
+  let p;
+  try{ p=getPayload({lead_stage:'Preview — email not yet provided'}); }catch(e){ return; }
+  if(!p.dealership_name||!p.zip)return;
+  partialSent=true;
+  const body=JSON.stringify(p);
+  try{
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(`${API_BASE}/api/rv-demand/estimate-and-submit`,new Blob([body],{type:'application/json'}));
+    }else{
+      fetch(`${API_BASE}/api/rv-demand/estimate-and-submit`,{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(function(){});
+    }
+  }catch(e){}
+}
+window.addEventListener('pagehide',sendPartialBeacon);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden')sendPartialBeacon(); });
