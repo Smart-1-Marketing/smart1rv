@@ -86,7 +86,29 @@ async function main() {
   const only = valueOf('--lead-id');
   if (only) owed = owed.filter(r => r.lead_id === only);
 
-  if (!owed.length) { console.log('Nothing owed.'); return 0; }
+  if (!owed.length) {
+    if (has('--from-cloudinary')) {
+      console.log('Nothing owed: the durable copy holds no unsent leads.');
+      return 0;
+    }
+    // An empty local log is NOT evidence that nothing is owed. This service has
+    // no Render disk, so leads.jsonl lives inside the container and dies with
+    // it -- on every deploy, and on every free-tier idle spin-down, which lands
+    // about fifteen minutes after the last request. Printing a flat "nothing
+    // owed" off that would be the confident all-clear this whole tool exists to
+    // prevent, handed over at the one moment somebody is hunting for lost leads.
+    console.log('Nothing owed *in the local log* -- which is not the same answer.');
+    if ((process.env.CLOUDINARY_URL || '').trim()) {
+      console.log('\nThat log lives in the container and is destroyed on every restart\n' +
+                  'and every idle spin-down, so it is routinely empty. Ask the durable\n' +
+                  'copy before concluding anything:\n\n' +
+                  '    node replayFailed.js --from-cloudinary --dry-run\n');
+    } else {
+      console.log('\nAnd CLOUDINARY_URL is not set, so there is no durable copy to check\n' +
+                  'either -- any lead recorded before the last restart is unrecoverable.\n');
+    }
+    return 0;
+  }
 
   for (const r of owed) {
     const f = r.fields || {};

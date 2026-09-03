@@ -614,7 +614,14 @@ app.get('/health', (req, res) => {
       webhook_configured: webhookConfigured,
       mirror_configured: Boolean((process.env.CLOUDINARY_URL || '').trim()),
       log: leadStore.leadsPath(),
-      owed: leadStore.unsent().length
+      // Named for what it actually counts. The container's log does not survive
+      // a restart or an idle spin-down, so a bare "owed: 0" would read as "no
+      // leads outstanding" when it means "nothing outstanding since this
+      // container started" -- a different and much weaker claim.
+      owed_local: leadStore.unsent().length,
+      owed_note: "counted from this container's own log, which does not survive a " +
+        'restart or an idle spin-down; run replayFailed.js --from-cloudinary for ' +
+        'the durable count'
     },
     detail: webhookConfigured ? '' :
       'SMART1_SUITE_WEBHOOK_URL is not set. Leads are being recorded and can be ' +
