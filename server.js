@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import { buildProposalPdf, uploadPdfToGhlMedia, uploadPdfToCloudinary, proposalFileName } from './proposal.js';
+import * as leadStore from './lib/leadStore.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -547,30 +548,77 @@ function buildFallbackEstimate(payload) {
   };
 }
 
-async function sendToSmart1Suite(payload) {
-  const response = await fetch(process.env.SMART1_SUITE_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+/**
+ * Write the lead down, then try to deliver it. Returns what happened.
+ *
+ * The record comes first and unconditionally, so an unset webhook URL, a Suite
+ * outage and a rejected POST all leave a replayable lead instead of nothing.
+ * This never throws: the caller used to catch a throw and log it, which is how
+ * an unset SMART1_SUITE_WEBHOOK_URL came to look exactly like a bad afternoon
+ * at GoHighLevel. The two are named apart now.
+ */
+async function sendToSmart1Suite(payload, kind = 'lead') {
+  // The generated report is left out of the record: large, regenerable, already
+  // on Cloudinary as a PDF, and the one field that would make a log line big
+  // enough for two workers to interleave halves of it.
+  const { proposal_summary_text, month_by_month_plan_text, opportunity_note, ...keep } = payload || {};
+  const row = await leadStore.record(keep, kind);
 
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`Smart 1 Suite webhook failed: ${response.status} ${text}`);
+  const url = (process.env.SMART1_SUITE_WEBHOOK_URL || '').trim();
+  if (!url) {
+    await leadStore.mark(row, 'failed: SMART1_SUITE_WEBHOOK_URL is not set');
+    return { ok: false, recorded: true, lead_id: row.lead_id, status: null,
+             detail: 'no webhook URL configured' };
   }
 
-  return { status: response.status, body: text };
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    await leadStore.mark(row, `failed: ${err.name || 'FetchError'}`);
+    return { ok: false, recorded: true, lead_id: row.lead_id, status: null,
+             detail: err.message };
+  }
+
+  const text = await response.text().catch(() => '');
+  if (!response.ok) {
+    console.error(`Smart 1 Suite rejected the lead: HTTP ${response.status} ${text.slice(0, 300)}`);
+    await leadStore.mark(row, `failed: HTTP ${response.status}`);
+    return { ok: false, recorded: true, lead_id: row.lead_id, status: response.status,
+             detail: text.slice(0, 300) };
+  }
+
+  await leadStore.mark(row, 'sent', { http_status: response.status });
+  return { ok: true, recorded: true, lead_id: row.lead_id, status: response.status, body: text };
 }
 
 // Bump this whenever you deploy so /health confirms the running build.
 const BUILD = '2026-08-10-consistency-pass';
 
 app.get('/health', (req, res) => {
+  // `ok` stays true for the platform probe -- the app really is serving. Whether
+  // it can DELIVER a lead is a different question, and it used to be unanswerable
+  // from here: with no webhook URL set, every lead this app takes is undeliverable
+  // and /health said nothing at all about it.
+  const webhookConfigured = Boolean((process.env.SMART1_SUITE_WEBHOOK_URL || '').trim());
   res.json({
     ok: true,
+    status: webhookConfigured ? 'ok' : 'degraded',
     service: 'smart1rv',
     build: BUILD,
+    lead_delivery: {
+      webhook_configured: webhookConfigured,
+      mirror_configured: Boolean((process.env.CLOUDINARY_URL || '').trim()),
+      log: leadStore.leadsPath(),
+      owed: leadStore.unsent().length
+    },
+    detail: webhookConfigured ? '' :
+      'SMART1_SUITE_WEBHOOK_URL is not set. Leads are being recorded and can be ' +
+      'replayed with replayFailed.js once one is.',
     features: {
       progressive_capture: true,
       placeholder_email: PLACEHOLDER_EMAIL,
@@ -802,16 +850,26 @@ app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
       proposal_pdf_filename
     };
 
-    // The webhook post is best-effort: if Smart 1 Suite is briefly unreachable, the visitor
-    // should STILL see their report. We log the failure (and keep the payload) rather than 500.
+    // The webhook post is best-effort: if Smart 1 Suite is briefly unreachable, the
+    // visitor should STILL see their report. This comment used to say we "keep the
+    // payload" and we kept nothing -- there was nowhere to keep it. Now the lead is
+    // written down before the POST is attempted, so it is replayable either way.
     let suite_webhook_status = null;
     let suite_webhook_ok = false;
+    let lead_recorded = false;
+    let suite_webhook_detail = '';
     try {
       const suiteResult = await sendToSmart1Suite(suitePayload);
       suite_webhook_status = suiteResult.status;
-      suite_webhook_ok = true;
+      suite_webhook_ok = suiteResult.ok;
+      lead_recorded = suiteResult.recorded;
+      suite_webhook_detail = suiteResult.detail || '';
     } catch (hookErr) {
-      console.error('Smart 1 Suite webhook failed (returning report to visitor anyway):', hookErr.message);
+      // sendToSmart1Suite handles its own failures, so reaching here means
+      // something unforeseen -- worth a distinct message rather than one that
+      // blames the webhook for it.
+      console.error('Unexpected failure recording or sending the lead:', hookErr.message);
+      suite_webhook_detail = hookErr.message;
     }
 
     return res.json({
@@ -820,7 +878,12 @@ app.post('/api/rv-demand/estimate-and-submit', async (req, res) => {
       estimate,
       estimate_source,
       suite_webhook_ok,
-      suite_webhook_status
+      suite_webhook_status,
+      // `ok` is about the report, which really was built. These say what
+      // happened to the lead, so nothing on this response implies the CRM has
+      // it when it does not -- and `lead_recorded` says it is replayable.
+      lead_recorded,
+      suite_webhook_detail
     });
   } catch (error) {
     console.error(error);
