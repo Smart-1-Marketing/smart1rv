@@ -4,6 +4,7 @@ import cors from 'cors';
 import OpenAI from 'openai';
 import { buildProposalPdf, uploadPdfToGhlMedia, uploadPdfToCloudinary, proposalFileName } from './proposal.js';
 import * as leadStore from './lib/leadStore.js';
+import * as suiteLead from './lib/suiteLead.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,11 +37,21 @@ app.use(express.static('public'));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const requiredEnv = ['OPENAI_API_KEY', 'SMART1_SUITE_WEBHOOK_URL'];
+// SMART1_SUITE_WEBHOOK_URL is deliberately not in here any more. It was, and
+// it was never set on this service, so this warned on every boot and the
+// warning was right: every lead the app took was being discarded. Leaving it
+// required now would warn for ever about a variable nothing reads -- and a
+// warning that is always there is one nobody reads either, which is how the
+// real one went unnoticed. Where the leads go is on /health instead, with the
+// endpoint printed.
+const requiredEnv = ['OPENAI_API_KEY'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
     console.warn(`Missing environment variable: ${key}`);
   }
+}
+if (!suiteLead.configured()) {
+  console.warn(`Lead delivery is not configured: ${suiteLead.whyNot()}`);
 }
 
 const currentMonthIndex = new Date().getMonth();
@@ -549,13 +560,20 @@ function buildFallbackEstimate(payload) {
 }
 
 /**
- * Write the lead down, then try to deliver it. Returns what happened.
+ * Write the lead down, then hand it to the Hub. Returns what happened.
  *
- * The record comes first and unconditionally, so an unset webhook URL, a Suite
- * outage and a rejected POST all leave a replayable lead instead of nothing.
+ * The record comes first and unconditionally, so an unreachable Hub, a Suite
+ * outage and a refused POST all leave a replayable lead instead of nothing.
  * This never throws: the caller used to catch a throw and log it, which is how
  * an unset SMART1_SUITE_WEBHOOK_URL came to look exactly like a bad afternoon
- * at GoHighLevel. The two are named apart now.
+ * at GoHighLevel -- and that variable was in fact never set, so every lead this
+ * app ever took was discarded.
+ *
+ * There is no webhook any more. The Hub writes the contact over the
+ * GoHighLevel Contacts API and returns the contact id, which is proof a
+ * contact exists rather than proof somebody accepted a request. See
+ * lib/suiteLead.js, including why there is deliberately no fallback to the
+ * old URL.
  */
 async function sendToSmart1Suite(payload, kind = 'lead') {
   // The generated report is left out of the record: large, regenerable, already
@@ -564,36 +582,55 @@ async function sendToSmart1Suite(payload, kind = 'lead') {
   const { proposal_summary_text, month_by_month_plan_text, opportunity_note, ...keep } = payload || {};
   const row = await leadStore.record(keep, kind);
 
-  const url = (process.env.SMART1_SUITE_WEBHOOK_URL || '').trim();
-  if (!url) {
-    await leadStore.mark(row, 'failed: SMART1_SUITE_WEBHOOK_URL is not set');
-    return { ok: false, recorded: true, lead_id: row.lead_id, status: null,
-             detail: 'no webhook URL configured' };
-  }
+  const res = await suiteLead.deliver({
+    source: leadStore.SOURCE_SLUG,
+    page: leadPage(),
+    fields: suiteLead.leadFields(payload || {}),
+    pdfUrl: String((payload || {}).report_pdf_url || ''),
+    meta: suiteLead.leadMeta(payload || {}, [`report:${kind}`])
+  });
 
-  let response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+  if (res.status === suiteLead.STATUS_DELIVERED) {
+    await leadStore.mark(row, 'sent', {
+      contact_id: res.contact_id, hub_lead_id: res.hub_lead_id,
+      http_status: res.http_status
     });
-  } catch (err) {
-    await leadStore.mark(row, `failed: ${err.name || 'FetchError'}`);
-    return { ok: false, recorded: true, lead_id: row.lead_id, status: null,
-             detail: err.message };
+  } else if (res.status === suiteLead.STATUS_ACCEPTED) {
+    await leadStore.mark(row, 'accepted', {
+      hub_lead_id: res.hub_lead_id, http_status: res.http_status, detail: res.detail
+    });
+  } else if (res.status === suiteLead.STATUS_UNDELIVERABLE) {
+    await leadStore.mark(row, `undeliverable: ${res.detail.slice(0, 200)}`);
+  } else {
+    console.error('Lead not delivered to the Hub:', res.detail);
+    await leadStore.mark(row, `failed: ${res.detail.slice(0, 200)}`,
+                         { http_status: res.http_status });
   }
 
-  const text = await response.text().catch(() => '');
-  if (!response.ok) {
-    console.error(`Smart 1 Suite rejected the lead: HTTP ${response.status} ${text.slice(0, 300)}`);
-    await leadStore.mark(row, `failed: HTTP ${response.status}`);
-    return { ok: false, recorded: true, lead_id: row.lead_id, status: response.status,
-             detail: text.slice(0, 300) };
-  }
+  return {
+    // Only a contact id is a delivery. The Hub having stored the lead is its
+    // own answer rather than being folded into this one, or "delivered" goes
+    // back to meaning "somebody answered 200".
+    ok: res.status === suiteLead.STATUS_DELIVERED,
+    accepted: res.status === suiteLead.STATUS_ACCEPTED,
+    undeliverable: res.status === suiteLead.STATUS_UNDELIVERABLE,
+    recorded: true, lead_id: row.lead_id, contact_id: res.contact_id,
+    status: res.http_status || null, detail: res.detail
+  };
+}
 
-  await leadStore.mark(row, 'sent', { http_status: response.status });
-  return { ok: true, recorded: true, lead_id: row.lead_id, status: response.status, body: text };
+/**
+ * Which placement this lead came from, as the Hub's `page` tag.
+ *
+ * The hostname, not the app's display name. This tool also runs inside the Hub
+ * itself, so "which of the two produced this lead" is a real question and the
+ * host is the only thing that answers it -- and it is short enough to read as a
+ * tag in Smart 1 Suite, which a sentence is not.
+ */
+function leadPage() {
+  const base = String(process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '').trim();
+  const host = base.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  return host || `smart1${leadStore.SOURCE_SLUG}`;
 }
 
 // Bump this whenever you deploy so /health confirms the running build.
@@ -604,14 +641,25 @@ app.get('/health', (req, res) => {
   // it can DELIVER a lead is a different question, and it used to be unanswerable
   // from here: with no webhook URL set, every lead this app takes is undeliverable
   // and /health said nothing at all about it.
-  const webhookConfigured = Boolean((process.env.SMART1_SUITE_WEBHOOK_URL || '').trim());
+  const deliveryConfigured = suiteLead.configured();
+  // Read for one reason: to say that a value is still sitting there. This app
+  // no longer posts to it -- the Hub writes the contact over the Contacts API
+  // -- so anything still firing on that URL is outside this codebase and would
+  // write a second contact for one visitor.
+  const retiredWebhookStillSet = Boolean((process.env.SMART1_SUITE_WEBHOOK_URL || '').trim());
   res.json({
     ok: true,
-    status: webhookConfigured ? 'ok' : 'degraded',
+    status: deliveryConfigured ? 'ok' : 'degraded',
     service: 'smart1rv',
     build: BUILD,
     lead_delivery: {
-      webhook_configured: webhookConfigured,
+      delivery: 'Smart 1 Hub -> GoHighLevel Contacts API',
+      hub_endpoint: suiteLead.endpoint(),
+      // Not a gate: an untrusted caller is rate-limited, not refused. Reported
+      // because every lead this app sends arrives at the Hub from one address,
+      // so without it the fourth visitor of a busy hour is turned away.
+      rate_limit_token_set: Boolean(suiteLead.token()),
+      retired_webhook_still_set: retiredWebhookStillSet,
       mirror_configured: Boolean((process.env.CLOUDINARY_URL || '').trim()),
       log: leadStore.leadsPath(),
       // Named for what it actually counts. The container's log does not survive
@@ -619,13 +667,18 @@ app.get('/health', (req, res) => {
       // leads outstanding" when it means "nothing outstanding since this
       // container started" -- a different and much weaker claim.
       owed_local: leadStore.unsent().length,
+      // Counted apart from owed, never merged with it. A lead the Hub has
+      // accepted is stored and is being retried there, so this app owes it to
+      // nobody -- and it is still not a contact, which is a different claim
+      // from "delivered" and has to read as one. An abandoned form with nobody
+      // to contact is a third thing again, and a real visitor either way.
+      accepted_by_hub: leadStore.accepted().length,
+      undeliverable_no_contact: leadStore.undeliverable().length,
       owed_note: "counted from this container's own log, which does not survive a " +
         'restart or an idle spin-down; run replayFailed.js --from-cloudinary for ' +
         'the durable count'
     },
-    detail: webhookConfigured ? '' :
-      'SMART1_SUITE_WEBHOOK_URL is not set. Leads are being recorded and can be ' +
-      'replayed with replayFailed.js once one is.',
+    detail: suiteLead.whyNot(),
     features: {
       progressive_capture: true,
       placeholder_email: PLACEHOLDER_EMAIL,
@@ -633,7 +686,7 @@ app.get('/health', (req, res) => {
       openai_retry_attempts: OPENAI_MAX_ATTEMPTS,
       openai_timeout_ms: OPENAI_TIMEOUT_MS,
       fallback_estimate: true,
-      webhook_failure_nonfatal: true,
+      delivery_failure_nonfatal: true,
       estimate_cache: { enabled: true, size: estimateCache.size, ttl_ms: ESTIMATE_CACHE_TTL_MS }
     },
     timestamp: new Date().toISOString()

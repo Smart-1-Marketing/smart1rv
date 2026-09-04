@@ -79,3 +79,44 @@ test('long values are capped so a line stays small', async () => {
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+test('the answers the Hub gives are separate states, not two', async () => {
+  const delivered = await leadStore.mark(
+    await leadStore.record({ email: 'a@example.com' }), 'sent', { contact_id: 'ghl_1' });
+  const atHub = await leadStore.mark(
+    await leadStore.record({ email: 'b@example.com' }), 'accepted', { hub_lead_id: 'hub_1' });
+  const nobody = await leadStore.mark(
+    await leadStore.record({ website_url: 'https://x.example' }),
+    'undeliverable: nothing to contact them on');
+  const owed = await leadStore.mark(
+    await leadStore.record({ email: 'd@example.com' }), "failed: Couldn't reach the Hub");
+
+  const owedIds = new Set(leadStore.unsent().map(r => r.lead_id));
+  assert.ok(!owedIds.has(delivered.lead_id), 'a delivered lead is not owed');
+  // The Hub holds it and is retrying it there. Re-posting it from here would
+  // write a second lead row for one visitor.
+  assert.ok(!owedIds.has(atHub.lead_id), 'a lead the Hub accepted is not owed either');
+  // An abandoned form that never reached the contact step. Left as a failure it
+  // would sit in the owed count for ever and be replayed on every run.
+  assert.ok(!owedIds.has(nobody.lead_id), 'a lead with nobody to contact is not owed');
+  assert.ok(owedIds.has(owed.lead_id), 'a real failure still is');
+
+  // Counted apart rather than merged: "stored at the Hub" and "in the CRM" are
+  // different claims, and so is "there was nobody to write down".
+  assert.deepEqual(leadStore.accepted().map(r => r.lead_id), [atHub.lead_id]);
+  assert.deepEqual(leadStore.undeliverable().map(r => r.lead_id), [nobody.lead_id]);
+  assert.equal(delivered.contact_id, 'ghl_1',
+    'a delivered lead keeps the contact id that proves it');
+});
+
+test('nothing is delivered to a webhook any more', () => {
+  const src = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../replayFailed.js', import.meta.url), 'utf8');
+  // The variable is still read on /health, to say a leftover value should be
+  // cleared -- what must not come back is a POST to it.
+  assert.ok(!/fetch\(\s*url\s*,/.test(src) || /suiteLead\.deliver\(/.test(src),
+    'delivery goes through the one Hub path');
+  assert.ok(/suiteLead\.deliver\(/.test(src), 'both call sites use it');
+  assert.ok(!/SMART1_SUITE_WEBHOOK_URL\s*\|\|\s*''\)\.trim\(\);\s*\n\s*if \(!url\)/.test(src),
+    'no code path posts to the retired webhook URL');
+});
