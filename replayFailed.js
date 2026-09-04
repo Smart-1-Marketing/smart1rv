@@ -23,6 +23,7 @@
  */
 import 'dotenv/config';
 import * as leadStore from './lib/leadStore.js';
+import * as suiteLead from './lib/suiteLead.js';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -118,15 +119,14 @@ async function main() {
 
   if (has('--dry-run')) { console.log('\n--dry-run: nothing was posted.'); return 0; }
 
-  const url = (process.env.SMART1_SUITE_WEBHOOK_URL || '').trim();
-  if (!url) {
+  if (!suiteLead.configured()) {
     // Refused rather than reported as a clean run: replaying into nowhere would
     // mark every one of these 'sent' and lose them a second time.
-    console.error('\nRefusing to replay: SMART1_SUITE_WEBHOOK_URL is not set.');
+    console.error('\nRefusing to replay: ' + suiteLead.whyNot());
     return 2;
   }
 
-  let sent = 0, failed = 0;
+  let sent = 0, accepted = 0, undeliverable = 0, failed = 0;
   for (const r of owed) {
     const body = { ...(r.fields || {}) };
     if (!Object.keys(body).length) {
@@ -134,31 +134,51 @@ async function main() {
       failed += 1;
       continue;
     }
-    body.replayed = 'true';          // so the CRM side can tell a replay apart
-    let resp;
-    try {
-      resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+    body.replayed = 'true';          // so Suite can tell a replay apart
+    const res = await suiteLead.deliver({
+      source: leadStore.SOURCE_SLUG,
+      page: String(r.page || body.page || 'replay'),
+      fields: suiteLead.leadFields(body),
+      pdfUrl: String(body.report_pdf_url || ''),
+      meta: suiteLead.leadMeta(body, ['replayed', `report:${r.kind || 'lead'}`])
+    });
+    if (res.status === suiteLead.STATUS_DELIVERED) {
+      await leadStore.mark(r, 'sent', {
+        contact_id: res.contact_id, hub_lead_id: res.hub_lead_id,
+        http_status: res.http_status, replayed: true
       });
-    } catch (err) {
-      console.log(`  ${r.lead_id}: ${err.name || 'FetchError'}`);
-      await leadStore.mark(r, `failed: ${err.name || 'FetchError'}`);
-      failed += 1;
+      console.log(`  ${r.lead_id}: delivered, contact ${res.contact_id}`);
+      sent += 1;
       continue;
     }
-    if (!resp.ok) {
-      console.log(`  ${r.lead_id}: HTTP ${resp.status}`);
-      await leadStore.mark(r, `failed: HTTP ${resp.status}`);
-      failed += 1;
+    if (res.status === suiteLead.STATUS_ACCEPTED) {
+      // The Hub has it and is retrying it there. Counted as done here --
+      // re-posting it on the next run would write a second lead row for one
+      // visitor, which is the duplicate a single path exists to stop.
+      await leadStore.mark(r, 'accepted', {
+        hub_lead_id: res.hub_lead_id, http_status: res.http_status,
+        replayed: true, detail: res.detail
+      });
+      console.log(`  ${r.lead_id}: accepted by the Hub, delivery pending there`);
+      accepted += 1;
       continue;
     }
-    await leadStore.mark(r, 'sent', { http_status: resp.status, replayed: true });
-    sent += 1;
+    if (res.status === suiteLead.STATUS_UNDELIVERABLE) {
+      // Recorded and not counted as owed: offering it again would be refused
+      // identically, for ever.
+      await leadStore.mark(r, `undeliverable: ${res.detail.slice(0, 200)}`);
+      console.log(`  ${r.lead_id}: undeliverable -- ${res.detail}`);
+      undeliverable += 1;
+      continue;
+    }
+    console.log(`  ${r.lead_id}: ${res.detail}`);
+    await leadStore.mark(r, `failed: ${res.detail.slice(0, 200)}`,
+                         { http_status: res.http_status });
+    failed += 1;
   }
 
-  console.log(`\nSent ${sent}, still owed ${failed}.`);
+  console.log(`\nDelivered ${sent}, accepted by the Hub ${accepted}, ` +
+    `undeliverable ${undeliverable}, still owed ${failed}.`);
   return failed === 0 ? 0 : 1;
 }
 
